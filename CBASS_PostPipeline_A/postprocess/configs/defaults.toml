@@ -1,0 +1,131 @@
+[vars]
+nside       = 1024
+nside_out   = 512
+coords      = "G"            # "G" | "C"
+dipole_amp_mK = 2.01726
+prefix      = ""
+input_dir   = "/scratch/nas_cbassarc/cbass_data/Reductions/v34m3_mcal1/NIGHTMERID20/AWR1xJ13/calibrated_map"
+beam_model_filename = "ancillary_data/BeamData/cbass_transfer.txt"
+output_root = "out_deconv_final_ns0512_with_inpaint_test01"
+#without_inpaint_test02"
+fig_root    = "out_deconv_final_ns0512_with_inpaint_test01/figures"
+
+[global]
+default_header_file = "pipeline/FinalMapHeader.hdr"
+
+[input] 
+map = "{input_dir}/AWR1_xND12J13_xAS14_{nside:04d}_NM20S3M1_{coords}_Off1e6_map.fits"
+cov = "{input_dir}/AWR1_xND12J13_xAS14_{nside:04d}_NM20S3M1_{coords}_Off1e6_cov_polCovCor.fits"
+
+[stages]
+
+order = ["Masks","MonoDipoleSub","Deconvolution","FinalMap"]
+
+[MonoDipoleSub]
+input_coordinate_system = "{coords}"
+remove_cmb_dipole = true
+offset_mK       = 41.0
+offset_mK_err   = 6.5
+dipole_amp_mK   = "{dipole_amp_mK}"
+fig_dir         = "{fig_root}/MonoDipoleSub"
+
+[Masks]
+nside = "{nside}"
+mask_definitions = "postprocess/configs/masks.toml"
+smooth_sky_map = 5
+output_dir = "{output_root}/masks"
+sky_map = "ancillary_data/combined_spass_cbass_4.76GHz_1deg.fits"         
+write_figures = true
+# write_regions_h5 = true
+
+[SourceSubtraction]
+output_dir = "{output_root}/SourceSubtraction"
+fig_dir    = "{fig_root}/SourceSubtraction"
+nside      = "{vars.nside}"
+coords     = "{vars.coords}"
+
+cbass_fwhm_deg      = 1.0
+use_beam_model      = true
+beam_model_filename = "ancillary_data/beams/cbass_beam2025V78s6gc.txt"
+
+cbass_catalogue     = "ancillary_data/catalogues/cbassNorth_sourceCat_v1.3.txt"
+gb6_catalogue       = "ancillary_data/catalogues/gregory1996_gb6_modified.fits"
+pmn_catalogue       = "ancillary_data/catalogues/griffith1993_pmne.fits"
+pmnt_catalogue      = "ancillary_data/catalogues/griffith1993_pmnt.fits"
+mingaliev_catalogue = "ancillary_data/catalogues/mingaliev2001_RATAN600.fits"
+
+cbass_max_flux = 10000.0
+cbass_min_flux = 0.61
+gb6_min_flux   = 0.1
+pmn_min_flux   = 0.1
+pmnt_min_flux  = 0.1
+mingaliev_min_flux = 0.0
+
+cbass_min_latitude    = 10.0
+cbass_min_declination = -6.0
+
+final_output_catalogue_name_stub = "cbass_dr1_ss_catalogue"
+output_source_map_name = "source_map_merged_gb6_pmn_pmnt_mingaliev_cbass.fits"
+do_residual_fits = true
+
+threshold_mask_maps = [
+  # 95%: remove ALL C-BASS + ALL others
+  { mask_filename = "{output_root}/masks/CBASS95pc_1024.fits",cbass = { mode = "all" },gb6   = { mode = "all" }, pmn   = { mode = "all" }, pmnt  = { mode = "all" }, ming  = { mode = "all" } },
+
+  # 90-95%: 
+  { mask_filename = "{output_root}/masks/CBASS90pc_1024.fits", cbass = { mode = "min_flux", limit = 2.0 }},
+
+  # 80–95% (it’s cumulative ≥80, but 95% is already gone): C-BASS < 2 Jy; others < 1 Jy
+  #{ mask_filename = "{output_root}/masks/CBASS80pc_1024.fits", cbass = { mode = "min_flux", limit = 1.0 }},
+
+  # 0–80% (really ≥70, but 80/95 already handled): 0.61 < C-BASS < 1 Jy
+  #{ mask_filename = "{output_root}/masks/CBASS70pc_1024.fits",cbass = { mode = "min_flux", limit = 0.61 } },
+
+]
+
+exclude_regions = [
+  # { name="Tau A", lon=184.5551, lat=-5.7877, radius=5.0 },
+  # { name="Ori A", lon=211.0,    lat=-19.5,   radius=5.0 },
+]
+
+
+[Deconvolution]
+beam_filename     = "{vars.beam_model_filename}"   # or "none" to skip / leave null
+beam_normalise    = true
+beam_format       = "ELL_BL"
+output_fwhm       = 1                         # degrees
+nside_out         = "{nside_out}"
+spline_lmin       = 300                       # leave present for now (taper)
+spline_lmax       = 700
+spline_order      = 3
+map_coord         = "{coords}"
+min_dec           = -90
+fig_dir           = "{fig_root}/Deconvolution"
+
+use_edge_inpainting = false
+
+[FinalMap]
+# Final output path (deterministic from vars)
+output = "{output_root}/cbass_ns{nside}_to_ns{nside_out}_{coords}{prefix}_dip{dipole_amp_mK:.5g}mK.fits"
+preserve_in_ext1 = true 
+
+[profiles]
+mask_only.modules = ["Masks", "PlotQuicklook"]
+with_deconv.modules = ["Masks","MonoDipoleSub","Deconvolution","FinalMap", "PlotQuicklook"]
+no_deconv.modules   = ["Masks","MonoDipoleSub","FinalMap", "PlotQuicklook"]
+src_then_deconv.modules = ["Masks","MonoDipoleSub","SourceSubtraction","Deconvolution","FinalMap", "PlotQuicklook"]
+src_only.modules = ["Masks","SourceSubtraction","FinalMap", "PlotQuicklook"]
+with_plots.modules = ["Masks", "MonoDipoleSub", "Deconvolution", "PlotQuicklook"]
+
+[PlotQuicklook]
+fig_root = "{vars.fig_root}"
+tag = "{vars.coords}_ns{vars.nside}"
+
+[matrix]
+vars.nside       = [1024, 512]
+vars.nside_out   = [1024, 512, 256]
+vars.coords      = ["G", "C"]
+vars.dipole_amp_mK = [2.01726]
+
+[constraints]
+"vars.nside_out <= vars.nside" = true

@@ -1,0 +1,68 @@
+# postprocess/stages/finalmap.py
+from __future__ import annotations
+from typing import Dict, Any, Tuple
+import os
+import numpy as np
+import healpy as hp
+from astropy.io import fits
+
+from . import Stage
+from ..types import MapBundle, StageReport
+
+PRESERVE_KEYS = {"AEFF","CALDATE","POLCCONV","BAD_DATA","TELESCOP","FREQ","COORDSYS"}
+
+class FinalMap(Stage):
+    name = "FinalMap"
+
+    def _read_preserved_cards(self, src_path: str) -> Dict[str, Any]:
+        out = {}
+        if not (src_path and os.path.exists(src_path)):
+            return out
+        with fits.open(src_path, memmap=False) as hdul:
+            hdr = hdul[1].header if len(hdul) > 1 else hdul[0].header
+            for k in PRESERVE_KEYS:
+                if k in hdr:
+                    out[k] = hdr[k]
+        return out
+
+    def _merge_header(self, hdr: fits.Header, preserved: Dict[str, Any], pipeline_cards: Dict[str, Any], history_lines):
+        # 1) carry preserved cards if not already set
+        for k, v in preserved.items():
+            if k not in hdr:
+                hdr[k] = v
+        # 2) add/overwrite pipeline cards
+        for k, v in pipeline_cards.items():
+            try:
+                hdr[k] = v
+            except Exception:
+                hdr[k] = str(v)
+        # 3) provenance
+        for line in history_lines:
+            hdr["HISTORY"] = line
+
+    def run(self, bundle: MapBundle, stage_cfg: Dict[str, Any], full_cfg: Dict[str, Any]) -> Tuple[MapBundle, StageReport]:
+        out = (full_cfg.get("FinalMap") or {}).get("output")
+        if not out:
+            return bundle, StageReport(self.name, summary="no output path")
+
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+
+        data = np.concatenate((bundle.map,bundle.cov))
+        print(bundle.cov.shape)
+
+        # --- build primary HDU
+        prim = fits.PrimaryHDU(data.astype("f4"))
+
+        # Read preserved cards from original input (prefer bundle.source_path)
+        src_path = bundle.source_path or (full_cfg.get("input", {})).get("map")
+        preserved = self._read_preserved_cards(src_path)
+
+        # Merge into PRIMARY header (simple, robust)
+        self._merge_header(prim.header, preserved, bundle.headers, bundle.history)
+
+        hdul = fits.HDUList([prim])
+
+        hdul.writeto(out, overwrite=True)
+
+        rep = StageReport(self.name, summary=f"wrote {out}")
+        return bundle, rep

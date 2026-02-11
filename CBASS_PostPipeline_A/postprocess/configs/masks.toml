@@ -1,0 +1,49 @@
+[CBASS_95pc]
+name = "CBASS 95pc"
+cmap = "Reds"
+processes = [
+  { function = "threshold_mask", threshold_pc = 95 },
+  { function = "smooth_mask", fwhm = 5 },
+  { function = "remove_pixels_with_masked_neighbour" },
+  { function = "remove_bad_data_mask" },
+]
+
+[CBASS_90pc]
+name = "CBASS 90pc"
+cmap = "Blues"
+processes = [
+  { function = "threshold_mask", threshold_pc = 90 },
+  { function = "smooth_mask", fwhm = 5 },
+  { function = "remove_pixels_with_masked_neighbour" },
+  { function = "remove_bad_data_mask" },
+]
+
+[CBASS_80pc]
+name = "CBASS 80pc"
+cmap = "Oranges"
+processes = [
+  { function = "threshold_mask", threshold_pc = 80 },
+  { function = "smooth_mask", fwhm = 5 },
+  { function = "remove_pixels_with_masked_neighbour" },
+  { function = "remove_bad_data_mask" },
+]
+
+[CBASS_70pc]
+name = "CBASS 70pc"
+cmap = "YlOrBr"
+processes = [
+  { function = "threshold_mask", threshold_pc = 70 },
+  { function = "smooth_mask", fwhm = 5 },
+  { function = "remove_pixels_with_masked_neighbour" },
+  { function = "remove_bad_data_mask" },
+]
+
+[NorthPolarSpur]
+name = "North Polar Spur"
+cmap = "Purples"
+processes = [
+  { function = "query_arc_pixels", ra = 329, dec = 17.5, major = 58, minor = 58, width = 30, pa = 0, res = 6, theta_start = 0, theta_end = 2.79253 }, # ~160 deg
+  { function = "subtract_elliptical_pixels", ra = 0, dec = 0, major = 13, minor = 60, pa = 0, res = 18 },
+  { function = "latitude_cut", latitude = 0, model = "<" },
+  { function = "remove_bad_data_mask" },
+]
