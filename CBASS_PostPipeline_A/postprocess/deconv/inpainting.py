@@ -51,8 +51,11 @@ def inpaint_and_apodise(hpmap, decapo=-21.6, smapo=4, n_iter=200, k=2, set_0=Fal
         mask[boundary] = True
         
     # what's not inpainted is set to median or to 0
-    if not set_0: complete_value=np.nanmedian(hpmap)
-    else: complete_value=0
+    if not set_0:
+        finite_seen = np.isfinite(hpmap) & (hpmap != hp.UNSEEN)
+        complete_value = np.nanmedian(hpmap[finite_seen]) if np.any(finite_seen) else 0.0
+    else:
+        complete_value = 0
     map_inpainted[np.isnan(map_inpainted)] = complete_value
 
     # the transition is made smoothed

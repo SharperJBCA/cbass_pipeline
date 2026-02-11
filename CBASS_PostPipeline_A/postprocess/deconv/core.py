@@ -158,11 +158,6 @@ def apply_transfer_to_maps(
     Qi = Q.copy()
     Ui = U.copy()
 
-    # Replace invalids with 0 to avoid NaNs in spherical transforms
-    Ii[~valid] = 0.0
-    Qi[~valid] = 0.0
-    Ui[~valid] = 0.0
-
     # Subtract a robust offset from I to mitigate ringing; add back later
     # (use only valid pixels for the statistic)
     i_offset = np.median(Ii[valid]) if np.any(valid) else 0.0
@@ -171,9 +166,21 @@ def apply_transfer_to_maps(
     # Apply Gilles inpainting and apodisation scheme 
     if apodise_inpaint:
         dec_apo, sm_apo, k, n_iter = -15.6 - 6, 4, 2, 200
+        Ii[~valid] = hp.UNSEEN
+        Qi[~valid] = hp.UNSEEN
+        Ui[~valid] = hp.UNSEEN
         Ii = inpainting.inpaint_and_apodise(Ii, dec_apo, sm_apo, n_iter=n_iter, k=k, set_0=False)
         Qi = inpainting.inpaint_and_apodise(Qi, dec_apo, sm_apo, n_iter=n_iter, k=k, set_0=True)
         Ui = inpainting.inpaint_and_apodise(Ui, dec_apo, sm_apo, n_iter=n_iter, k=k, set_0=True)
+    else:
+        # Replace invalids with 0 to avoid NaNs in spherical transforms
+        Ii[~valid] = 0.0
+        Qi[~valid] = 0.0
+        Ui[~valid] = 0.0
+
+    # Ensure there are no invalid pixels left for spherical transforms.
+    for arr in (Ii, Qi, Ui):
+        arr[~np.isfinite(arr) | (arr == hp.UNSEEN)] = 0.0
         
     # map2alm for T,E,B in one call (spin-2 decomposition for Q/U)
     almT, almE, almB = hp.map2alm([Ii, Qi, Ui], lmax=lmax, pol=True, use_weights=False)
@@ -195,7 +202,6 @@ def apply_transfer_to_maps(
     # Build output validity by downgrading the original valid mask
     valid_out = hp.ud_grade(valid.astype(float), nside_out) > 0.5
     dI[valid_out] += i_offset
-    i_offset = np.median(dI[valid_out]) if np.any(valid_out) else 0.0
 
     # Propagate UNSEEN to invalid-out pixels
     dI[~valid_out] = hp.UNSEEN
