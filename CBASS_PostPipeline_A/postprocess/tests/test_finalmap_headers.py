@@ -110,3 +110,40 @@ def test_finalmap_updates_geometry_cards_from_output_bundle(tmp_path: Path):
         assert hdr["FIRSTPIX"] == 0
         assert hdr["LASTPIX"] == 12 * 4 * 4 - 1
         assert hdr["COORDSYS"] == "C"
+
+
+def test_finalmap_updates_beam_cards_when_deconvolved(tmp_path: Path):
+    out = tmp_path / "output.fits"
+
+    stage = FinalMap()
+    bundle = _build_bundle(nside=4)
+    bundle.headers.update({"DCONV": True, "FWHM_OUT": 1.0})
+
+    stage.run(bundle, stage_cfg={}, full_cfg={"FinalMap": {"output": str(out)}})
+
+    with fits.open(out, memmap=False) as hdul:
+        hdr = hdul[1].header
+        assert float(hdr["BMAJ"]) == 1.0
+        assert float(hdr["BMIN"]) == 1.0
+
+
+def test_finalmap_keeps_input_beam_cards_without_deconvolution(tmp_path: Path):
+    src = tmp_path / "input.fits"
+    out = tmp_path / "output.fits"
+    _write_source_with_header(src)
+
+    with fits.open(src, mode="update", memmap=False) as hdul:
+        hdul[1].header["BMAJ"] = 0.75
+        hdul[1].header["BMIN"] = 0.75
+
+    stage = FinalMap()
+    bundle = _build_bundle(nside=4)
+    bundle.source_path = str(src)
+    bundle.headers.update({"DCONV": False})
+
+    stage.run(bundle, stage_cfg={"preserve_all_headers": True}, full_cfg={"FinalMap": {"output": str(out)}})
+
+    with fits.open(out, memmap=False) as hdul:
+        hdr = hdul[1].header
+        assert float(hdr["BMAJ"]) == 0.75
+        assert float(hdr["BMIN"]) == 0.75

@@ -152,6 +152,23 @@ class FinalMap(Stage):
         if coords:
             hdr["COORDSYS"] = str(coords).upper()
 
+    def _update_beam_cards(self, hdr: fits.Header, pipeline_cards: Dict[str, Any]) -> None:
+        dconv = bool(pipeline_cards.get("DCONV", False))
+        if not dconv:
+            return
+
+        fwhm_out = pipeline_cards.get("FWHM_OUT")
+        if fwhm_out is None:
+            return
+
+        try:
+            fwhm_deg = float(fwhm_out)
+        except Exception:
+            return
+
+        hdr["BMAJ"] = fwhm_deg
+        hdr["BMIN"] = fwhm_deg
+
     def run(self,
             bundle: MapBundle,
             stage_cfg: Dict[str, Any],
@@ -205,6 +222,9 @@ class FinalMap(Stage):
 
         # Ensure geometry cards describe the output map (not preserved input values)
         self._update_output_geometry_cards(tbhdu.header, npix=npix, nside=bundle.nside, coords=bundle.coords)
+
+        # If deconvolution ran, update beam metadata to output resolution.
+        self._update_beam_cards(tbhdu.header, bundle.headers)
 
         # Apply template ordering
         template_path = self._resolve_template_path(
