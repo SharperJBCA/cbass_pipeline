@@ -1,0 +1,82 @@
+XTENSION= 'BINTABLE'           / binary table extension
+BITPIX  =                    8 / array data type
+NAXIS   =                    2 / Binary table
+NAXIS1  =                   28 / Number of bytes per row
+NAXIS2  =                    0 / Number of rows
+PCOUNT  =                    0 / Random parameter count
+GCOUNT  =                    1 / Group count
+TFIELDS =                    7 / Number of columns
+COMMENT
+COMMENT  *** END OF MANDATORY FIELDS ***
+COMMENT
+DATE    = ''                   / Date of creation
+POLAR   =                    T / Polarisation present
+COMMENT
+COMMENT  *** Column Names ***
+COMMENT
+TTYPE1  = 'I_STOKES'           / Stokes I in K_RJ
+TTYPE2  = 'Q_STOKES'           / Stokes Q in K_RJ, wrt Galactic coordinates
+TTYPE3  = 'U_STOKES'           / Stokes U in K_RJ, wrt Galactic coordinates
+TTYPE4  = 'II_COV  '           / Covariance of Stokes I in K_RJ^2
+TTYPE5  = 'QQ_COV  '           / Covariance of Stokes Q in K_RJ^2
+TTYPE6  = 'UU_COV  '           / Covariance of Stokes U in K_RJ^2
+TTYPE7  = 'QU_COV  '           / Covariance of Stokes Q and U in K_RJ^2
+COMMENT
+COMMENT  *** Column units ***
+COMMENT
+TUNIT1  = 'K_RJ    '           / Unit for Stokes I
+TUNIT2  = 'K_RJ    '           / Unit for Stokes Q
+TUNIT3  = 'K_RJ    '           / Unit for Stokes U
+TUNIT4  = 'K_RJ^2  '           / Unit for Covariance of Stokes I
+TUNIT5  = 'K_RJ^2  '           / Unit for Covariance of Stokes Q
+TUNIT6  = 'K_RJ^2  '           / Unit for Covariance of Stokes U
+TUNIT7  = 'K_RJ^2  '           / Unit for Covariance of Stokes Q and U
+COMMENT
+COMMENT  *** Column formats ***
+COMMENT
+TFORM1  = 'E       '           / Type for Stokes I
+TFORM2  = 'E       '           / Type for Stokes Q
+TFORM3  = 'E       '           / Type for Stokes U
+TFORM4  = 'E       '           / Type for Covariance of Stokes I
+TFORM5  = 'E       '           / Type for Covariance of Stokes Q
+TFORM6  = 'E       '           / Type for Covariance of Stokes U
+TFORM7  = 'E       '           / Type for Covariance of Stokes Q and U
+COMMENT
+COMMENT  *** Pixel information ***
+COMMENT
+DATE_MAP= ''                   / Raw Map Creation Date
+PIXTYPE = 'HEALPIX '           / HEALPIX pixelisation
+ORDERING= 'RING    '           / Pixel ordering scheme, either RING or NESTED
+EXTNAME = 'XTENSION'           / Name of this binary table extension
+FIRSTPIX=                    0 / First pixel # (0 based)
+LASTPIX =                    0 / Last pixel # (0 based)
+NSIDE   =                    0 / Resolution parameter of HEALPIX
+INDXSCHM= 'IMPLICIT'           / Indexing: IMPLICIT or EXPLICIT
+COORDSYS= 'G       '           / G = Galactic, E = ecliptic, C = celestial
+POLCCONV= 'IAU     '           / Polarisation convention
+BAD_DATA=          -1.6375E+30 / Bad data value, used to mask bad pixels
+COMMENT ------------------------------
+COMMENT C-BASS North survey IQU DR1 map
+COMMENT ------------------------------
+TELESCOP= 'C-BASS North'       / Telescope name
+FREQ    = '4760000000'         / Frequency in Hz
+AEFF    = '15.62   '           / Effective area in m^2
+BMAJ    =   0.7666666666666667 / Beam major axis in degrees
+BMIN    =   0.7666666666666667 / Beam minor axis in degrees
+BPA     =                    0 / Beam position angle in degrees
+RELEASE = 'DR1     '           / Data release version
+ADS     = 'cbass_paper_ref_here' /
+COMMENT
+COMMENT  *** C-BASS post-processing information ***
+COMMENT
+CALDATE = ''
+MD_MONO =                    T
+MD_DIPO =                    T
+MD_OFST =                 41.0
+MD_EOFS =                  6.5
+DCONV   =                    T
+BL_FILE = 'none    '
+NSIDE_IN=                    0
+FWHM_OUT=                  1.0
+L_MAX   =                    0
+DECMIN  =                  0.0
