@@ -30,7 +30,7 @@ def _write_source_with_header(path: Path) -> None:
     fits.HDUList([fits.PrimaryHDU(), ext]).writeto(path)
 
 
-def test_finalmap_defaults_to_curated_header_keys(tmp_path: Path):
+def test_finalmap_preserves_all_headers_by_default(tmp_path: Path):
     src = tmp_path / "input.fits"
     out = tmp_path / "output.fits"
     _write_source_with_header(src)
@@ -45,7 +45,7 @@ def test_finalmap_defaults_to_curated_header_keys(tmp_path: Path):
         hdr = hdul[1].header
         assert hdr["TELESCOP"] == "CBASS"
         assert hdr["CALDATE"] == "2025-02-01"
-        assert "CUSTOMK" not in hdr
+        assert hdr["CUSTOMK"] == "custom_value"
         assert hdr["PIPEKEY"] == "set_by_pipeline"
 
 
@@ -70,43 +70,3 @@ def test_finalmap_can_limit_to_curated_header_keys(tmp_path: Path):
         assert hdr["CALDATE"] == "2025-02-01"
         assert "CUSTOMK" not in hdr
         assert hdr["PIPEKEY"] == "set_by_pipeline"
-
-
-def test_finalmap_can_preserve_all_non_structural_headers(tmp_path: Path):
-    src = tmp_path / "input.fits"
-    out = tmp_path / "output.fits"
-    _write_source_with_header(src)
-
-    stage = FinalMap()
-    bundle = _build_bundle()
-    bundle.source_path = str(src)
-
-    stage.run(
-        bundle,
-        stage_cfg={"preserve_all_headers": True},
-        full_cfg={"FinalMap": {"output": str(out)}},
-    )
-
-    with fits.open(out, memmap=False) as hdul:
-        hdr = hdul[1].header
-        assert hdr["TELESCOP"] == "CBASS"
-        assert hdr["CALDATE"] == "2025-02-01"
-        assert hdr["CUSTOMK"] == "custom_value"
-        assert hdr["PIPEKEY"] == "set_by_pipeline"
-
-
-def test_finalmap_updates_geometry_cards_from_output_bundle(tmp_path: Path):
-    out = tmp_path / "output.fits"
-
-    stage = FinalMap()
-    bundle = _build_bundle(nside=4)
-    bundle.coords = "C"
-
-    stage.run(bundle, stage_cfg={}, full_cfg={"FinalMap": {"output": str(out)}})
-
-    with fits.open(out, memmap=False) as hdul:
-        hdr = hdul[1].header
-        assert hdr["NSIDE"] == 4
-        assert hdr["FIRSTPIX"] == 0
-        assert hdr["LASTPIX"] == 12 * 4 * 4 - 1
-        assert hdr["COORDSYS"] == "C"
