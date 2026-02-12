@@ -123,19 +123,6 @@ class FinalMap(Stage):
         #hdr.extend(new_hdr.cards)
         return new_hdr
 
-
-    def _resolve_template_path(self, template_path: str | None) -> str | None:
-        if not template_path:
-            return None
-        if os.path.exists(template_path):
-            return template_path
-
-        pkg_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-        candidate = os.path.join(pkg_root, template_path)
-        if os.path.exists(candidate):
-            return candidate
-        return None
-
     def run(self,
             bundle: MapBundle,
             stage_cfg: Dict[str, Any],
@@ -177,7 +164,7 @@ class FinalMap(Stage):
 
         tbhdu = fits.BinTableHDU.from_columns(cols, name="xtension")
 
-        preserve_all = bool(stage_cfg.get("preserve_all_headers", False))
+        preserve_all = bool(stage_cfg.get("preserve_all_headers", True))
         preserve_in_ext1 = bool(stage_cfg.get("preserve_in_ext1", True))
 
         # Read preserved cards
@@ -188,11 +175,11 @@ class FinalMap(Stage):
         self._merge_header(tbhdu.header, preserved, bundle.headers, bundle.history)
 
         # Apply template ordering
-        template_path = self._resolve_template_path(
+        template_path = (
             stage_cfg.get("header_template")
             or (full_cfg.get("global", {}) or {}).get("default_header_file")
         )
-        if template_path:
+        if template_path and os.path.exists(template_path):
             tbhdu.header = self._apply_template_order(tbhdu.header, template_path)
 
         primary = fits.PrimaryHDU()
