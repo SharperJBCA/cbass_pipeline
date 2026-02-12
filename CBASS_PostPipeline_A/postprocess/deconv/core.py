@@ -138,6 +138,9 @@ def apply_transfer_to_maps(
     I = np.asarray(I, dtype=float)
     Q = np.asarray(Q, dtype=float)
     U = np.asarray(U, dtype=float)
+    I[I < -1e20] = hp.UNSEEN
+    Q[Q < -1e20] = hp.UNSEEN
+    U[U < -1e20] = hp.UNSEEN
 
     nside_in = hp.get_nside(I)
     if nside_out is None:

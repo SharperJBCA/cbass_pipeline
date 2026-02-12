@@ -1,7 +1,7 @@
 import numpy as np
 import healpy as hp
 
-from ..deconv import core, inpainting
+from postprocess.deconv import core, inpainting
 
 
 def test_inpaint_and_apodise_uses_seen_median_for_fill_value():

@@ -35,9 +35,9 @@ def inpaint_and_apodise(hpmap, decapo=-21.6, smapo=4, n_iter=200, k=2, set_0=Fal
     map_inpainted[map_inpainted == hp.UNSEEN] = np.nan
     nside = hp.npix2nside(len(hpmap))
     npix = 12*nside**2
-    neighbors = hp.get_all_neighbours(nside, np.arange(len(hpmap)))
+    neighbors = hp.get_all_neighbours(nside, np.arange(npix))
     mask = mask.copy()
-    
+
     # iteratively inpaints
     for _ in tqdm(range(n_iter)):    
         boundary = (~mask) & (np.sum(mask[neighbors] , axis=0)>=k)
