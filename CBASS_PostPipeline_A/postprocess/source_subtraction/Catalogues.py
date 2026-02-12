@@ -105,15 +105,18 @@ class Catalogue:
     # ---- masking/cuts
     def mask_map(self, mask_map: np.ndarray, flux: Optional[np.ndarray]=None, lower_limit: float=0.0) -> None:
         """
-        Remove sources whose pixel is True in mask_map OR whose flux > lower_limit (if flux provided).
-        This matches your existing semantics used for 'threshold masks'.
+        Remove sources in masked pixels.
+
+        If ``flux`` is provided, only remove masked sources with ``flux < lower_limit``.
+        This is used for tiered threshold masking where deeper masks remove progressively
+        fainter sources from a given catalogue.
         """
         theta, phi = self.thetaphi
         pix = hp.ang2pix(hp.npix2nside(mask_map.size), theta, phi)
         if flux is None:
             kill = mask_map[pix].astype(bool)
         else:
-            kill = mask_map[pix].astype(bool) | (flux < float(lower_limit))  # <-- fixed
+            kill = mask_map[pix].astype(bool) & (flux < float(lower_limit))
         self._apply_mask_inplace(~kill)
 
     def mask_declinations(self, declination_min: float=-10, declination_max: float=90) -> None:
