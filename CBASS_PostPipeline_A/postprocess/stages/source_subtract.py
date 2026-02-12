@@ -81,14 +81,58 @@ class SourceSubtraction(Stage):
         return out
 
     @staticmethod
-    def _apply_mask_rule(cat, rule: Dict[str, Any], mask_bool: np.ndarray) -> None:
-        """Apply a single threshold-mask rule to one catalogue."""
+    def _apply_mask_rule(cat, rule: Dict[str, Any], mask_bool: np.ndarray) -> Dict[str, Any]:
+        """Apply a single threshold-mask rule to one catalogue and return stats."""
+        before = int(cat.size)
         mode = rule.get("mode")
+        limit = None
         if mode == "all":
             cat.mask_map(mask_bool)
         elif mode == "min_flux":
             limit = float(rule["limit"])
             cat.mask_map(mask_bool, flux=cat.flux, lower_limit=limit)
+        after = int(cat.size)
+        return {
+            "mode": mode,
+            "limit": limit,
+            "before": before,
+            "after": after,
+            "removed": before - after,
+        }
+
+    @staticmethod
+    def _plot_mask_tier_diagnostics(records: List[Dict[str, Any]], out_path: str) -> None:
+        """Create a compact diagnostic table plot of tier-mask removals."""
+        if len(records) == 0:
+            return
+        rows = []
+        for r in records:
+            lim = "-" if r.get("limit") is None else f"{float(r['limit']):g}"
+            rows.append([
+                r.get("mask", ""),
+                r.get("catalogue", ""),
+                r.get("mode", ""),
+                lim,
+                str(r.get("before", "")),
+                str(r.get("removed", "")),
+                str(r.get("after", "")),
+            ])
+
+        fig_h = max(3.0, 0.36 * len(rows) + 1.6)
+        fig, ax = pyplot.subplots(figsize=(13, fig_h))
+        ax.axis("off")
+        table = ax.table(
+            cellText=rows,
+            colLabels=["Mask", "Catalogue", "Mode", "Limit [Jy]", "Before", "Removed", "After"],
+            loc="center",
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1.0, 1.2)
+        ax.set_title("Source subtraction mask-tier diagnostics", fontsize=11, pad=10)
+        fig.tight_layout()
+        fig.savefig(out_path, dpi=170)
+        pyplot.close(fig)
 
     @staticmethod
     def _haversine_theta(glat1, glon1, glat2, glon2):
@@ -251,14 +295,29 @@ class SourceSubtraction(Stage):
             p2 = Catalogues.PMN(min_flux=pmnt_min_flux);      p2(pmnt_cat)
 
             # ---- load Boolean mask for each entry and apply in sequence
+            mask_tier_records: List[Dict[str, Any]] = []
             for tm in threshold_mask_maps:
                 m = self._read_mask_bool(str(tm["mask_filename"]))
+                mask_name = os.path.basename(str(tm["mask_filename"]))
                 # Per-catalogue knobs (optional keys)
-                if "cbass" in tm: self._apply_mask_rule(cb, tm["cbass"], m)
-                if "gb6"   in tm: self._apply_mask_rule(g6, tm["gb6"],   m)
-                if "pmn"   in tm: self._apply_mask_rule(p1, tm["pmn"],   m)
-                if "pmnt"  in tm: self._apply_mask_rule(p2, tm["pmnt"],  m)
-                if "ming"  in tm: self._apply_mask_rule(mg, tm["ming"],  m)
+                if "cbass" in tm:
+                    s = self._apply_mask_rule(cb, tm["cbass"], m)
+                    mask_tier_records.append({"mask": mask_name, "catalogue": "cbass", **s})
+                if "gb6" in tm:
+                    s = self._apply_mask_rule(g6, tm["gb6"], m)
+                    mask_tier_records.append({"mask": mask_name, "catalogue": "gb6", **s})
+                if "pmn" in tm:
+                    s = self._apply_mask_rule(p1, tm["pmn"], m)
+                    mask_tier_records.append({"mask": mask_name, "catalogue": "pmn", **s})
+                if "pmnt" in tm:
+                    s = self._apply_mask_rule(p2, tm["pmnt"], m)
+                    mask_tier_records.append({"mask": mask_name, "catalogue": "pmnt", **s})
+                if "ming" in tm:
+                    s = self._apply_mask_rule(mg, tm["ming"], m)
+                    mask_tier_records.append({"mask": mask_name, "catalogue": "ming", **s})
+
+            diag_plot = os.path.join(fig_dir or out_dir, "source_mask_tier_diagnostics.png")
+            self._plot_mask_tier_diagnostics(mask_tier_records, diag_plot)
 
             # de-duplicate & merge weighting
             mg, g6 = self._common_sources(mg, g6)

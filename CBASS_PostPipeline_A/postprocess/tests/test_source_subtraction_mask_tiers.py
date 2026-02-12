@@ -71,17 +71,51 @@ def test_tiered_mask_rules_and_cg05_all_catalogues_masking():
     cg30[[0, 1, 2, 3]] = True
 
     # C-BASS tier thresholds at CG05/10/20/30
-    SourceSubtraction._apply_mask_rule(cbass, {"mode": "min_flux", "limit": 10.0}, cg05)
-    SourceSubtraction._apply_mask_rule(cbass, {"mode": "min_flux", "limit": 2.0}, cg10)
-    SourceSubtraction._apply_mask_rule(cbass, {"mode": "min_flux", "limit": 1.0}, cg20)
-    SourceSubtraction._apply_mask_rule(cbass, {"mode": "min_flux", "limit": 0.61}, cg30)
+    stats = []
+    stats.append(SourceSubtraction._apply_mask_rule(cbass, {"mode": "min_flux", "limit": 10.0}, cg05))
+    stats.append(SourceSubtraction._apply_mask_rule(cbass, {"mode": "min_flux", "limit": 2.0}, cg10))
+    stats.append(SourceSubtraction._apply_mask_rule(cbass, {"mode": "min_flux", "limit": 1.0}, cg20))
+    stats.append(SourceSubtraction._apply_mask_rule(cbass, {"mode": "min_flux", "limit": 0.61}, cg30))
 
     # all catalogues removed in CG05
-    SourceSubtraction._apply_mask_rule(cbass, {"mode": "all"}, cg05)
-    SourceSubtraction._apply_mask_rule(gb6, {"mode": "all"}, cg05)
+    stats.append(SourceSubtraction._apply_mask_rule(cbass, {"mode": "all"}, cg05))
+    stats.append(SourceSubtraction._apply_mask_rule(gb6, {"mode": "all"}, cg05))
+
+    # Tier removals are one-by-one across the nested masks.
+    assert [s["removed"] for s in stats[:4]] == [0, 1, 1, 1]
+    assert stats[4]["removed"] == 1
+    assert stats[5]["removed"] == 1
 
     # CBASS: pixel 0 removed by CG05 all-catalogue mask; pixels 1/2/3 removed by tier limits.
     assert cbass.size == 0
 
     # Non-CBASS catalogue: only CG05 source removed by the all-catalogue rule.
     assert gb6.size == 3
+
+
+def test_plot_mask_tier_diagnostics_writes_png(tmp_path):
+    out = tmp_path / "diag.png"
+    records = [
+        {
+            "mask": "CG05.fits",
+            "catalogue": "cbass",
+            "mode": "min_flux",
+            "limit": 10.0,
+            "before": 100,
+            "removed": 12,
+            "after": 88,
+        },
+        {
+            "mask": "CG05.fits",
+            "catalogue": "gb6",
+            "mode": "all",
+            "limit": None,
+            "before": 45,
+            "removed": 8,
+            "after": 37,
+        },
+    ]
+
+    SourceSubtraction._plot_mask_tier_diagnostics(records, str(out))
+    assert out.exists()
+    assert out.stat().st_size > 0
