@@ -123,6 +123,35 @@ class FinalMap(Stage):
         #hdr.extend(new_hdr.cards)
         return new_hdr
 
+
+    def _resolve_template_path(self, template_path: str | None) -> str | None:
+        if not template_path:
+            return None
+        if os.path.exists(template_path):
+            return template_path
+
+        pkg_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        candidate = os.path.join(pkg_root, template_path)
+        if os.path.exists(candidate):
+            return candidate
+        return None
+
+    def _infer_nside_from_npix(self, npix: int) -> int:
+        if npix <= 0:
+            raise ValueError(f"Invalid npix={npix}")
+        nside = int(round((npix / 12.0) ** 0.5))
+        if 12 * nside * nside != npix:
+            raise ValueError(f"npix={npix} is not a valid HEALPix map size")
+        return nside
+
+    def _update_output_geometry_cards(self, hdr: fits.Header, npix: int, nside: int | None, coords: str | None) -> None:
+        out_nside = int(nside) if nside is not None else self._infer_nside_from_npix(npix)
+        hdr["FIRSTPIX"] = 0
+        hdr["LASTPIX"] = int(npix - 1)
+        hdr["NSIDE"] = out_nside
+        if coords:
+            hdr["COORDSYS"] = str(coords).upper()
+
     def run(self,
             bundle: MapBundle,
             stage_cfg: Dict[str, Any],
@@ -164,7 +193,7 @@ class FinalMap(Stage):
 
         tbhdu = fits.BinTableHDU.from_columns(cols, name="xtension")
 
-        preserve_all = bool(stage_cfg.get("preserve_all_headers", True))
+        preserve_all = bool(stage_cfg.get("preserve_all_headers", False))
         preserve_in_ext1 = bool(stage_cfg.get("preserve_in_ext1", True))
 
         # Read preserved cards
@@ -174,12 +203,15 @@ class FinalMap(Stage):
         # Merge into table header (values first)
         self._merge_header(tbhdu.header, preserved, bundle.headers, bundle.history)
 
+        # Ensure geometry cards describe the output map (not preserved input values)
+        self._update_output_geometry_cards(tbhdu.header, npix=npix, nside=bundle.nside, coords=bundle.coords)
+
         # Apply template ordering
-        template_path = (
+        template_path = self._resolve_template_path(
             stage_cfg.get("header_template")
             or (full_cfg.get("global", {}) or {}).get("default_header_file")
         )
-        if template_path and os.path.exists(template_path):
+        if template_path:
             tbhdu.header = self._apply_template_order(tbhdu.header, template_path)
 
         primary = fits.PrimaryHDU()

@@ -6,9 +6,9 @@ dipole_amp_mK = 2.01726
 prefix      = ""
 input_dir   = "/scratch/nas_cbassarc/cbass_data/Reductions/v34m3_mcal1/NIGHTMERID20/AWR1xJ13/calibrated_map"
 beam_model_filename = "ancillary_data/BeamData/cbass_transfer.txt"
-output_root = "out_deconv_final_ns0512_with_inpaint_test01"
+output_root = "out_deconv_final_ns0512_no_inpaint_test01"
 #without_inpaint_test02"
-fig_root    = "out_deconv_final_ns0512_with_inpaint_test01/figures"
+fig_root    = "out_deconv_final_ns0512_no_inpaint_test01/figures"
 
 [global]
 default_header_file = "pipeline/FinalMapHeader.hdr"
