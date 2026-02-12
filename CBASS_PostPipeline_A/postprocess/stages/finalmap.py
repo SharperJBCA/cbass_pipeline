@@ -2,27 +2,39 @@ from __future__ import annotations
 from typing import Dict, Any, Tuple
 import os
 import numpy as np
-import healpy as hp
 from astropy.io import fits
-from datetime import datetime
 
 from . import Stage
 from ..types import MapBundle, StageReport
 
-PRESERVE_KEYS = {"AEFF","CALDATE","POLCCONV","BAD_DATA","TELESCOP","FREQ","COORDSYS"}
+PRESERVE_KEYS = {"AEFF", "CALDATE", "POLCCONV", "BAD_DATA", "TELESCOP", "FREQ", "COORDSYS"}
+TABLE_STRUCTURE_KEYS = {
+    "XTENSION", "BITPIX", "NAXIS", "NAXIS1", "NAXIS2", "PCOUNT", "GCOUNT", "TFIELDS", "EXTNAME"
+}
 
 class FinalMap(Stage):
     name = "FinalMap"
 
-    def _read_preserved_cards(self, src_path: str) -> Dict[str, Any]:
+    def _read_preserved_cards(self, src_path: str, preserve_all: bool, preserve_in_ext1: bool = True) -> Dict[str, Any]:
         out = {}
         if not (src_path and os.path.exists(src_path)):
             return out
         with fits.open(src_path, memmap=False) as hdul:
-            hdr = hdul[1].header if len(hdul) > 1 else hdul[0].header
-            for k in PRESERVE_KEYS:
-                if k in hdr:
-                    out[k] = hdr[k]
+            hdu_index = 1 if (preserve_in_ext1 and len(hdul) > 1) else 0
+            hdr = hdul[hdu_index].header
+
+            if preserve_all:
+                for card in hdr.cards:
+                    k = card.keyword
+                    if k in ("", "COMMENT", "HISTORY", "END"):
+                        continue
+                    if k in TABLE_STRUCTURE_KEYS or k.startswith("TTYPE") or k.startswith("TFORM") or k.startswith("TUNIT"):
+                        continue
+                    out[k] = card.value
+            else:
+                for k in PRESERVE_KEYS:
+                    if k in hdr:
+                        out[k] = hdr[k]
         return out
 
     def _merge_header(self,
@@ -93,8 +105,6 @@ class FinalMap(Stage):
             else:
                 # Not set in base_hdr – keep template card as-is
                 new_hdr.append(card,bottom=True)
-            print(card)
-        print('---')
         # Pass 2: append any extra keywords that are in base_hdr but not in template
         tmpl_keys = {c.keyword for c in tmpl_hdr.cards}
         for card in base_hdr.cards:
@@ -102,10 +112,7 @@ class FinalMap(Stage):
             if key in ("COMMENT", "HISTORY", "END", ""):
                 continue
             if key not in tmpl_keys:
-                new_hdr.append(card,bottom=True)
-        for k,v in new_hdr.items():
-            print(k,v)
-        print('---') 
+                new_hdr.append(card, bottom=True)
 
         # Pass 3: append HISTORY cards at the very end
         for line in history_lines:
@@ -115,6 +122,20 @@ class FinalMap(Stage):
         #hdr.clear()
         #hdr.extend(new_hdr.cards)
         return new_hdr
+
+
+    def _resolve_template_path(self, template_path: str | None) -> str | None:
+        if not template_path:
+            return None
+        if os.path.exists(template_path):
+            return template_path
+
+        pkg_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+        candidate = os.path.join(pkg_root, template_path)
+        if os.path.exists(candidate):
+            return candidate
+        return None
+
     def run(self,
             bundle: MapBundle,
             stage_cfg: Dict[str, Any],
@@ -156,19 +177,23 @@ class FinalMap(Stage):
 
         tbhdu = fits.BinTableHDU.from_columns(cols, name="xtension")
 
+        preserve_all = bool(stage_cfg.get("preserve_all_headers", False))
+        preserve_in_ext1 = bool(stage_cfg.get("preserve_in_ext1", True))
+
         # Read preserved cards
         src_path = bundle.source_path or (full_cfg.get("input", {})).get("map")
-        preserved = self._read_preserved_cards(src_path)
+        preserved = self._read_preserved_cards(src_path, preserve_all=preserve_all, preserve_in_ext1=preserve_in_ext1)
 
         # Merge into table header (values first)
         self._merge_header(tbhdu.header, preserved, bundle.headers, bundle.history)
 
         # Apply template ordering
-        template_path = '/scratch/nas_cbassarc/sharper/work/CBASS_MagneticDust/cbass_post_pipeline/CBASS_PostPipeline_A/ancillary_data/cbass_dr1_header_template.hdr'
-        tbhdu.header = self._apply_template_order(tbhdu.header, template_path)
-
-        for k,c in tbhdu.header.items():
-            print(k,c)
+        template_path = self._resolve_template_path(
+            stage_cfg.get("header_template")
+            or (full_cfg.get("global", {}) or {}).get("default_header_file")
+        )
+        if template_path:
+            tbhdu.header = self._apply_template_order(tbhdu.header, template_path)
 
         primary = fits.PrimaryHDU()
         hdul = fits.HDUList([primary, tbhdu])
