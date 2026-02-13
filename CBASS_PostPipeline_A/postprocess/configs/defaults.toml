@@ -82,6 +82,7 @@ threshold_mask_maps = [
   { mask_filename = "{output_root}/masks/CBASS70pc_1024.fits",cbass = { mode = "min_flux", limit = 0.61 } },
 
 ]
+threshold_masks_coord = "{vars.coords}" # coordinate frame used by threshold_mask_maps ("G" or "C")
 
 exclude_regions = [
   { name="Tau A", lon=184.5551, lat=-5.7877, radius=5.0 },
