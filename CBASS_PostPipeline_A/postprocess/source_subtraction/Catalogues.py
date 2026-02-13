@@ -103,7 +103,14 @@ class Catalogue:
         self.eflux[mask] = eflux
 
     # ---- masking/cuts
-    def mask_map(self, mask_map: np.ndarray, flux: Optional[np.ndarray]=None, lower_limit: float=0.0) -> None:
+    def mask_map(
+        self,
+        mask_map: np.ndarray,
+        flux: Optional[np.ndarray]=None,
+        lower_limit: float=0.0,
+        map_coord: str = "G",
+        source_coord: str = "G",
+    ) -> None:
         """
         Remove sources in masked pixels.
 
@@ -111,7 +118,19 @@ class Catalogue:
         This is used for tiered threshold masking where deeper masks remove progressively
         fainter sources from a given catalogue.
         """
-        theta, phi = self.thetaphi
+        map_coord = (map_coord or "G").upper()
+        source_coord = (source_coord or "G").upper()
+
+        if map_coord not in ("G", "C") or source_coord not in ("G", "C"):
+            raise ValueError("mask_map: map_coord/source_coord must be 'G' or 'C'.")
+
+        if map_coord == source_coord:
+            theta, phi = self.thetaphi
+        else:
+            lon, lat = rotate(self.glon, self.glat, coord=(source_coord, map_coord))
+            theta = np.radians(90.0 - lat)
+            phi = np.radians(lon)
+
         pix = hp.ang2pix(hp.npix2nside(mask_map.size), theta, phi)
         if flux is None:
             kill = mask_map[pix].astype(bool)

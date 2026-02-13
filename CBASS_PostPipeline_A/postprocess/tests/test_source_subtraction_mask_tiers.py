@@ -119,3 +119,19 @@ def test_plot_mask_tier_diagnostics_writes_png(tmp_path):
     SourceSubtraction._plot_mask_tier_diagnostics(records, str(out))
     assert out.exists()
     assert out.stat().st_size > 0
+
+
+def test_mask_map_supports_catalogue_and_mask_coordinate_mismatch():
+    nside = 16
+    src_glon = np.array([120.0])
+    src_glat = np.array([30.0])
+    rot = hp.Rotator(coord=["G", "C"])
+    src_theta_c, src_phi_c = rot(np.radians(90.0 - src_glat), np.radians(src_glon))
+
+    masked_pix = hp.ang2pix(nside, src_theta_c, src_phi_c)
+    mask = np.zeros(12 * nside**2, dtype=bool)
+    mask[np.asarray(masked_pix, dtype=int)] = True
+
+    cat = _make_catalogue(glon=src_glon, glat=src_glat, flux=[1.0], name="CBASS")
+    cat.mask_map(mask, map_coord="C", source_coord="G")
+    assert cat.size == 0

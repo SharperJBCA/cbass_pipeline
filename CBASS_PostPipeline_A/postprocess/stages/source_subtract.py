@@ -81,16 +81,23 @@ class SourceSubtraction(Stage):
         return out
 
     @staticmethod
-    def _apply_mask_rule(cat, rule: Dict[str, Any], mask_bool: np.ndarray) -> Dict[str, Any]:
+    def _apply_mask_rule(
+        cat,
+        rule: Dict[str, Any],
+        mask_bool: np.ndarray,
+        *,
+        mask_coord: str = "G",
+        source_coord: str = "G",
+    ) -> Dict[str, Any]:
         """Apply a single threshold-mask rule to one catalogue and return stats."""
         before = int(cat.size)
         mode = rule.get("mode")
         limit = None
         if mode == "all":
-            cat.mask_map(mask_bool)
+            cat.mask_map(mask_bool, map_coord=mask_coord, source_coord=source_coord)
         elif mode == "min_flux":
             limit = float(rule["limit"])
-            cat.mask_map(mask_bool, flux=cat.flux, lower_limit=limit)
+            cat.mask_map(mask_bool, flux=cat.flux, lower_limit=limit, map_coord=mask_coord, source_coord=source_coord)
         after = int(cat.size)
         return {
             "mode": mode,
@@ -228,6 +235,7 @@ class SourceSubtraction(Stage):
         # masks & regions
         exclude_regions: List[Dict[str, Any]] = stage_cfg.get("exclude_regions") or []
         threshold_mask_maps = stage_cfg.get("threshold_mask_maps") or []
+        threshold_masks_coord = str(stage_cfg.get("threshold_masks_coord") or coords).upper()
 
         # naming/caching
         cat_stub   = stage_cfg.get("final_output_catalogue_name_stub", "cbass_dr1_ss_catalogue")
@@ -301,19 +309,19 @@ class SourceSubtraction(Stage):
                 mask_name = os.path.basename(str(tm["mask_filename"]))
                 # Per-catalogue knobs (optional keys)
                 if "cbass" in tm:
-                    s = self._apply_mask_rule(cb, tm["cbass"], m)
+                    s = self._apply_mask_rule(cb, tm["cbass"], m, mask_coord=threshold_masks_coord)
                     mask_tier_records.append({"mask": mask_name, "catalogue": "cbass", **s})
                 if "gb6" in tm:
-                    s = self._apply_mask_rule(g6, tm["gb6"], m)
+                    s = self._apply_mask_rule(g6, tm["gb6"], m, mask_coord=threshold_masks_coord)
                     mask_tier_records.append({"mask": mask_name, "catalogue": "gb6", **s})
                 if "pmn" in tm:
-                    s = self._apply_mask_rule(p1, tm["pmn"], m)
+                    s = self._apply_mask_rule(p1, tm["pmn"], m, mask_coord=threshold_masks_coord)
                     mask_tier_records.append({"mask": mask_name, "catalogue": "pmn", **s})
                 if "pmnt" in tm:
-                    s = self._apply_mask_rule(p2, tm["pmnt"], m)
+                    s = self._apply_mask_rule(p2, tm["pmnt"], m, mask_coord=threshold_masks_coord)
                     mask_tier_records.append({"mask": mask_name, "catalogue": "pmnt", **s})
                 if "ming" in tm:
-                    s = self._apply_mask_rule(mg, tm["ming"], m)
+                    s = self._apply_mask_rule(mg, tm["ming"], m, mask_coord=threshold_masks_coord)
                     mask_tier_records.append({"mask": mask_name, "catalogue": "ming", **s})
 
             diag_plot = os.path.join(fig_dir or out_dir, "source_mask_tier_diagnostics.png")
@@ -345,8 +353,13 @@ class SourceSubtraction(Stage):
             beam_model = None
             if use_beam_model and beam_model_filename:
                 beam_model = np.loadtxt(beam_model_filename)
+            if coords == "C":
+                map_lon, map_lat = Catalogues.rotate(total.glon, total.glat, coord=("G", "C"))
+            else:
+                map_lon, map_lat = total.glon, total.glat
+
             src_map = Mapper.pixel_space(
-                total.flux, total.glon, total.glat,
+                total.flux, map_lon, map_lat,
                 nside=nside_in, fwhm_deg=cbass_fwhm_deg,
                 use_beam_model=bool(use_beam_model and (beam_model is not None)),
                 beam_model=beam_model
