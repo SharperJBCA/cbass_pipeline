@@ -76,16 +76,16 @@ threshold_mask_maps = [
   { mask_filename = "{output_root}/masks/CBASS90pc_1024.fits", cbass = { mode = "min_flux", limit = 2.0 }},
 
   # 80–95% (it’s cumulative ≥80, but 95% is already gone): C-BASS < 2 Jy; others < 1 Jy
-  #{ mask_filename = "{output_root}/masks/CBASS80pc_1024.fits", cbass = { mode = "min_flux", limit = 1.0 }},
+  { mask_filename = "{output_root}/masks/CBASS80pc_1024.fits", cbass = { mode = "min_flux", limit = 1.0 }},
 
   # 0–80% (really ≥70, but 80/95 already handled): 0.61 < C-BASS < 1 Jy
-  #{ mask_filename = "{output_root}/masks/CBASS70pc_1024.fits",cbass = { mode = "min_flux", limit = 0.61 } },
+  { mask_filename = "{output_root}/masks/CBASS70pc_1024.fits",cbass = { mode = "min_flux", limit = 0.61 } },
 
 ]
 
 exclude_regions = [
-  # { name="Tau A", lon=184.5551, lat=-5.7877, radius=5.0 },
-  # { name="Ori A", lon=211.0,    lat=-19.5,   radius=5.0 },
+  { name="Tau A", lon=184.5551, lat=-5.7877, radius=5.0 },
+  { name="Ori A", lon=211.0,    lat=-19.5,   radius=5.0 },
 ]
 
 
@@ -99,10 +99,10 @@ spline_lmin       = 300                       # leave present for now (taper)
 spline_lmax       = 700
 spline_order      = 3
 map_coord         = "{coords}"
-min_dec           = -90
+min_dec           = -14.6
 fig_dir           = "{fig_root}/Deconvolution"
 
-use_edge_inpainting = false
+use_edge_inpainting = true
 
 [FinalMap]
 # Final output path (deterministic from vars)

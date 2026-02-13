@@ -273,11 +273,6 @@ def apply_transfer_to_cov(
     beam = hp.bl2beam(R0*pixwin, theta) 
     K0 = hp.beam2bl(beam**2, theta, lmax) 
 
-    from matplotlib import pyplot 
-    pyplot.plot(K0)
-    pyplot.xscale('log')
-    pyplot.savefig('test.png')
-    pyplot.close() 
 
     # Helper to transform a scalar map with kernel K_ell
     def _transform_scalar(m: np.ndarray, K: np.ndarray) -> np.ndarray:
