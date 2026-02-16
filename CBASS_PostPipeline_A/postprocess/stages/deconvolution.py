@@ -36,6 +36,7 @@ class Deconvolution(Stage):
         nside_out = int(cfg.get("nside_out", nside))
         lmax = int(cfg.get("beam_function_lmax", 3*nside - 1))
         apodise_inpaint_flag = bool(cfg.get("use_edge_inpainting", False))
+        apply_transfer_function = bool(cfg.get("apply_transfer_function", True))
 
         # Build transfer
         beam_file = cfg.get("beam_filename")
@@ -47,6 +48,7 @@ class Deconvolution(Stage):
             nside_in=nside, nside_out=nside_out, lmax=lmax,
             beam_format=cfg.get("beam_format", "THETA"),
             beam_normalise=bool(cfg.get("beam_normalise", False)),
+            apply_transfer_function=apply_transfer_function
         )
 
         # plot R0 

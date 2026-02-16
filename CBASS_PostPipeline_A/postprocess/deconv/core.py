@@ -71,7 +71,7 @@ def gen_pixel_window(nside, lmax=None):
 
     return  bl/bl[0] 
 
-def build_transfer_functions(beam_filename, output_fwhm_deg, nside_in, nside_out, lmax, beam_normalise=False, beam_format="auto", beam_units=None):
+def build_transfer_functions(beam_filename, output_fwhm_deg, nside_in, nside_out, lmax, beam_normalise=False, beam_format="auto", beam_units=None,apply_transfer_function=False):
     # Pixel window ratio (nside_out / nside_in)
     if nside_out < nside_in:
         pw_out = gen_pixel_window(nside_out, lmax=lmax)
@@ -81,12 +81,18 @@ def build_transfer_functions(beam_filename, output_fwhm_deg, nside_in, nside_out
         pixwin = np.ones(lmax + 1)
 
     if beam_filename:
-        bl0, bl2 = load_bl_any(
-            beam_filename, lmax,
-            beam_format=beam_format,
-            beam_units=beam_units,
-            normalise=beam_normalise,
-        )
+        if apply_transfer_function: 
+            bl0, bl2 = load_bl_any(
+                beam_filename, lmax,
+                beam_format=beam_format,
+                beam_units=beam_units,
+                normalise=beam_normalise,
+            )
+        else: # flat transfer functions so we just apply the pixel window function
+            bl0 = np.ones(lmax + 1)
+            bl2 = np.ones(lmax + 1)
+            bl2[0:2] = 0.0
+
         g0 = hp.gauss_beam(np.radians(output_fwhm_deg), lmax=lmax)
         # R_l = G_l / B_l
         if beam_format == 'ELL_BL':

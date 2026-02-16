@@ -227,7 +227,11 @@ def apply_profile(cfg: dict, name: str | None) -> dict:
     # Profiles may contain a 'modules' list and/or arbitrary key overrides
     base = copy.deepcopy(cfg)
     if isinstance(prof, dict):
-        base['stages']['order'] = prof['modules']
+        if 'modules' in prof:
+            base['stages']['order'] = prof['modules']
+        overrides = {k: v for k, v in prof.items() if k != 'modules'}
+        if overrides:
+            base = deep_merge(base, overrides)
     return base
 
 def apply_matrix(cfg: dict) -> List[dict]:

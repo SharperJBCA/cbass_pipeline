@@ -102,6 +102,7 @@ spline_order      = 3
 map_coord         = "{coords}"
 min_dec           = -14.6
 fig_dir           = "{fig_root}/Deconvolution"
+apply_transfer_function = true
 
 use_edge_inpainting = true
 
@@ -113,10 +114,16 @@ preserve_in_ext1 = true
 [profiles]
 mask_only.modules = ["Masks", "PlotQuicklook"]
 with_deconv.modules = ["Masks","MonoDipoleSub","Deconvolution","FinalMap", "PlotQuicklook"]
-no_deconv.modules   = ["Masks","MonoDipoleSub","FinalMap", "PlotQuicklook"]
+no_deconv.modules   = ["Masks","MonoDipoleSub","Deconvolution","FinalMap", "PlotQuicklook"]
 src_then_deconv.modules = ["Masks","MonoDipoleSub","SourceSubtraction","Deconvolution","FinalMap", "PlotQuicklook"]
-src_only.modules = ["Masks","SourceSubtraction","FinalMap", "PlotQuicklook"]
+src_only.modules = ["Masks","SourceSubtraction","Deconvolution","FinalMap", "PlotQuicklook"]
 with_plots.modules = ["Masks", "MonoDipoleSub", "Deconvolution", "PlotQuicklook"]
+
+[profiles.no_deconv.Deconvolution]
+apply_transfer_function = false
+
+[profiles.src_only.Deconvolution]
+apply_transfer_function = false
 
 [PlotQuicklook]
 fig_root = "{vars.fig_root}"
