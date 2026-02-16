@@ -5,19 +5,22 @@ import numpy as np
 import healpy as hp 
 
 
-def pix_under_dec(nside, lat_cut_deg):
+def pix_under_dec(nside, lat_cut_deg, coord='G'):
     
     npix = hp.nside2npix(nside)
     theta, phi = hp.pix2ang(nside, np.arange(npix))
     lon = np.degrees(phi)
     lat = 90.0 - np.degrees(theta)
-    gal = SkyCoord(l=lon*u.deg, b=lat*u.deg, frame="galactic")
-    icrs = gal.icrs
+    if coord == 'G':
+        gal = SkyCoord(l=lon*u.deg, b=lat*u.deg, frame="galactic")
+        icrs = gal.icrs
+    else:
+        icrs = SkyCoord(ra=lon*u.deg, dec=lat*u.deg, frame="icrs")
     dec = icrs.dec.deg
     return np.where(dec < lat_cut_deg)[0]
 
 
-def inpaint_and_apodise(hpmap, decapo=-21.6, smapo=4, n_iter=200, k=2, set_0=False):
+def inpaint_and_apodise(hpmap, coord='G', decapo=-21.6, smapo=4, n_iter=200, k=2, set_0=False):
     """
     Iteratively inpaint outside the survey
     
@@ -59,7 +62,7 @@ def inpaint_and_apodise(hpmap, decapo=-21.6, smapo=4, n_iter=200, k=2, set_0=Fal
     map_inpainted[np.isnan(map_inpainted)] = complete_value
 
     # the transition is made smoothed
-    list_pix_drop = pix_under_dec(nside, decapo)
+    list_pix_drop = pix_under_dec(nside, decapo, coord)
     mask_bin = np.ones((12*nside**2))
     mask_bin[list_pix_drop] = 0
     if smapo!=0: 

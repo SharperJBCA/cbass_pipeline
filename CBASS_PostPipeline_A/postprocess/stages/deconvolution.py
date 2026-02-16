@@ -63,7 +63,7 @@ class Deconvolution(Stage):
         pyplot.savefig(f'{fig_dir}/input_U.png')
         pyplot.close()
 
-        dI, dQ, dU = apply_transfer_to_maps(I,Q,U, R0,R2, pixwin, lmax=lmax, nside_out=nside_out, apodise_inpaint=apodise_inpaint_flag)
+        dI, dQ, dU = apply_transfer_to_maps(I,Q,U, bundle.coords, R0,R2, pixwin, lmax=lmax, nside_out=nside_out, apodise_inpaint=apodise_inpaint_flag)
 
         hp.mollview(dI,norm='hist')
         pyplot.savefig(f'{fig_dir}/deconvolved_I.png')

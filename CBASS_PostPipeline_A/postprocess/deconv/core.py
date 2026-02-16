@@ -106,7 +106,7 @@ def build_transfer_functions(beam_filename, output_fwhm_deg, nside_in, nside_out
 
 
 def apply_transfer_to_maps(
-    I: np.ndarray, Q: np.ndarray, U: np.ndarray,
+    I: np.ndarray, Q: np.ndarray, U: np.ndarray, coord: str,
     R0: np.ndarray, R2: np.ndarray, pixwin: np.ndarray,
     lmax: int, nside_out: int, apodise_inpaint : bool=False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -172,9 +172,9 @@ def apply_transfer_to_maps(
         Ii[~valid] = hp.UNSEEN
         Qi[~valid] = hp.UNSEEN
         Ui[~valid] = hp.UNSEEN
-        Ii = inpainting.inpaint_and_apodise(Ii, dec_apo, sm_apo, n_iter=n_iter, k=k, set_0=False)
-        Qi = inpainting.inpaint_and_apodise(Qi, dec_apo, sm_apo, n_iter=n_iter, k=k, set_0=True)
-        Ui = inpainting.inpaint_and_apodise(Ui, dec_apo, sm_apo, n_iter=n_iter, k=k, set_0=True)
+        Ii = inpainting.inpaint_and_apodise(Ii, coord, dec_apo, sm_apo, n_iter=n_iter, k=k, set_0=False)
+        Qi = inpainting.inpaint_and_apodise(Qi, coord, dec_apo, sm_apo, n_iter=n_iter, k=k, set_0=True)
+        Ui = inpainting.inpaint_and_apodise(Ui, coord, dec_apo, sm_apo, n_iter=n_iter, k=k, set_0=True)
     else:
         # Replace invalids with 0 to avoid NaNs in spherical transforms
         Ii[~valid] = 0.0
