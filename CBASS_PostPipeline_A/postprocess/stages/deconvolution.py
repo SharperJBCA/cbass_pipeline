@@ -81,8 +81,11 @@ class Deconvolution(Stage):
             covII,covQQ,covUU,covQU, R0,R2, pixwin, lmax=lmax, nside_out=nside_out
         )
 
-        # Dec mask
-        m = dec_mask(nside_out, coord=str(cfg.get("map_coord", bundle.coords or "G")), min_dec=float(cfg.get("min_dec", -13)))
+        # Dec mask: always follow the coordinate system of the in-memory map.
+        # A stale/incorrect stage config here can otherwise apply a Galactic
+        # declination cut to Celestial maps (or vice versa).
+        map_coord = str(bundle.coords or cfg.get("map_coord") or full.get("vars", {}).get("coords") or "G").upper()
+        m = dec_mask(nside_out, coord=map_coord, min_dec=float(cfg.get("min_dec", -13)))
         for mapp in (dI,dQ,dU,dII,dQQ,dUU,dQU):
             mapp[m==0] = hp.UNSEEN
 
