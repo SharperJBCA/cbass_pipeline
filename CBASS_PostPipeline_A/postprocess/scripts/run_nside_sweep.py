@@ -26,9 +26,9 @@ from postprocess.run import resolve
 
 
 COMBINATIONS = {
-    "no_deconv_no_src": ["Masks", "MonoDipoleSub", "FinalMap"],
+    "no_deconv_no_src": ["Masks", "MonoDipoleSub", "Deconvolution", "FinalMap"],
     "deconv_only": ["Masks", "MonoDipoleSub", "Deconvolution", "FinalMap"],
-    "src_only": ["Masks", "MonoDipoleSub", "SourceSubtraction", "FinalMap"],
+    "src_only": ["Masks", "MonoDipoleSub", "SourceSubtraction", "Deconvolution", "FinalMap"],
     "src_and_deconv": ["Masks", "MonoDipoleSub", "SourceSubtraction", "Deconvolution", "FinalMap"],
 }
 
@@ -66,7 +66,6 @@ def main() -> int:
 
                     cfg = copy.deepcopy(base_cfg)
                     cfg["stages"]["order"] = stage_order
-
                     overrides = {
                         "vars": {
                             "nside": nside,
@@ -79,6 +78,12 @@ def main() -> int:
                     }
                     resolved = resolve(cfg, overrides)
 
+                    if combo_name in cfg['profiles']:
+                        special_update = cfg['profiles'][combo_name] 
+                        for k,v in special_update.items():
+                            if isinstance(v,dict):
+                                for k2, v2 in v.items():
+                                    resolved[k][k2]=v2
                     print(
                         f"[sweep] {combo_name}: nside={nside} nside_out={nside_out} "
                         f"coord={coord} output={resolved['FinalMap']['output']}"

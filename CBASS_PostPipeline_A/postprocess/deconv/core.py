@@ -81,6 +81,7 @@ def build_transfer_functions(beam_filename, output_fwhm_deg, nside_in, nside_out
         pixwin = np.ones(lmax + 1)
 
     if beam_filename:
+        print('DECONVOLUTION', apply_transfer_function)
         if apply_transfer_function: 
             bl0, bl2 = load_bl_any(
                 beam_filename, lmax,
