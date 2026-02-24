@@ -70,13 +70,23 @@ COMMENT
 COMMENT  *** C-BASS post-processing information ***
 COMMENT
 CALDATE = ''
-MD_MONO =                    T
-MD_DIPO =                    T
-MD_OFST =                 41.0
-MD_EOFS =                  6.5
-DCONV   =                    T
-BL_FILE = 'none    '
-NSIDE_IN=                    0
-FWHM_OUT=                  1.0
-L_MAX   =                    0
-DECMIN  =                  0.0
+MD_MONO =                    T / True when monopole subtraction was applied
+MD_DIPO =                    T / True when dipole subtraction was applied
+MD_OFST =                 41.0 / Monopole offset removed [mK]
+MD_EOFS =                  6.5 / Monopole offset uncertainty [mK]
+DCONV   =                    F / True when beam deconvolution+reconvolution was applied
+BL_FILE = 'none    '           / Beam transfer-function file used for deconvolution
+NSIDE_IN=                    0 / Input NSIDE for transfer-function stage
+NSIDE_OUT=                   0 / Output NSIDE after transfer-function stage
+FWHM_OUT=                  1.0 / Output beam FWHM [deg] after deconvolution
+L_MAX   =                    0 / Maximum multipole used in transfer-function stage
+PIXWIN_APPLIED=              F / True when HEALPix pixel-window correction was applied
+DECMIN  =                  0.0 / Declination cut [deg] used for deconvolution mask
+SS_SSUB =                    F / True when source-subtraction stage was applied
+SS_MDEC =                  0.0 / Source catalogue minimum declination [deg]
+SS_CMAX =                  0.0 / C-BASS source maximum flux cut [Jy]
+SS_CMIN =                  0.0 / C-BASS source minimum flux cut [Jy]
+SS_GB6  =                  0.0 / GB6 source minimum flux cut [Jy]
+SS_PMN  =                  0.0 / PMN source minimum flux cut [Jy]
+SS_MLV  =                  0.0 / Mingaliev source minimum flux cut [Jy]
+SS_CATLG= 'none    '           / Source-subtraction merged catalogue filename

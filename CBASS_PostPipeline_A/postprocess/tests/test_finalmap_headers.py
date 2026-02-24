@@ -147,3 +147,44 @@ def test_finalmap_keeps_input_beam_cards_without_deconvolution(tmp_path: Path):
         hdr = hdul[1].header
         assert float(hdr["BMAJ"]) == 0.75
         assert float(hdr["BMIN"]) == 0.75
+
+
+def test_finalmap_skips_optional_template_cards_when_stage_not_run(tmp_path: Path):
+    out = tmp_path / "output.fits"
+    template = tmp_path / "template.hdr"
+    template.write_text(
+        "\n".join(
+            [
+                "XTENSION= 'BINTABLE'",
+                "BITPIX  = 8",
+                "NAXIS   = 2",
+                "NAXIS1  = 4",
+                "NAXIS2  = 0",
+                "PCOUNT  = 0",
+                "GCOUNT  = 1",
+                "TFIELDS = 1",
+                "TTYPE1  = 'I_STOKES'",
+                "TFORM1  = 'E'",
+                "TUNIT1  = 'K_RJ'",
+                "DCONV   = T / deconvolution flag",
+                "BL_FILE = 'none' / optional beam file",
+                "SS_SSUB = T / source subtraction flag",
+            ]
+        )
+        + "\n"
+    )
+
+    stage = FinalMap()
+    bundle = _build_bundle(nside=4)
+
+    stage.run(
+        bundle,
+        stage_cfg={"header_template": str(template)},
+        full_cfg={"FinalMap": {"output": str(out)}},
+    )
+
+    with fits.open(out, memmap=False) as hdul:
+        hdr = hdul[1].header
+        assert "DCONV" not in hdr
+        assert "BL_FILE" not in hdr
+        assert "SS_SSUB" not in hdr

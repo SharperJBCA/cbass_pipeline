@@ -11,6 +11,10 @@ PRESERVE_KEYS = {"AEFF", "CALDATE", "POLCCONV", "BAD_DATA", "TELESCOP", "FREQ", 
 TABLE_STRUCTURE_KEYS = {
     "XTENSION", "BITPIX", "NAXIS", "NAXIS1", "NAXIS2", "PCOUNT", "GCOUNT", "TFIELDS", "EXTNAME"
 }
+OPTIONAL_TEMPLATE_KEYS = {
+    "DCONV", "BL_FILE", "NSIDE_IN", "NSIDE_OUT", "FWHM_OUT", "L_MAX", "PIXWIN_APPLIED", "DECMIN",
+    "SS_SSUB", "SS_MDEC", "SS_CMAX", "SS_CMIN", "SS_GB6", "SS_PMN", "SS_MLV", "SS_CATLG",
+}
 
 class FinalMap(Stage):
     name = "FinalMap"
@@ -94,6 +98,9 @@ class FinalMap(Stage):
             # Copy COMMENT / blank cards exactly from template
             if key in ("COMMENT", ""):
                 new_hdr.append(card,bottom=True)
+                continue
+
+            if key in OPTIONAL_TEMPLATE_KEYS and key not in base_hdr:
                 continue
 
             # For "normal" keywords: prefer value from base_hdr if present

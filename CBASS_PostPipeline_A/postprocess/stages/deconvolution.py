@@ -98,21 +98,33 @@ class Deconvolution(Stage):
 
 
         # Header-ish flags for FinalMap
-        bundle.headers["DCONV"] = bool(beam_file is not None)
-        bundle.headers["BL_FILE"] = os.path.basename(beam_file) if beam_file else "none"
+        did_beam_deconv = bool(apply_transfer_function and (beam_file is not None))
+        bundle.headers["DCONV"] = did_beam_deconv
+        if did_beam_deconv:
+            bundle.headers["BL_FILE"] = os.path.basename(beam_file)
+            bundle.headers["FWHM_OUT"] = float(cfg.get("output_fwhm", 1.0))
+        else:
+            bundle.headers.pop("BL_FILE", None)
+            bundle.headers.pop("FWHM_OUT", None)
         bundle.headers["NSIDE_IN"] = nside
         bundle.headers["NSIDE_OUT"] = nside_out
-        bundle.headers["FWHM_OUT"] = float(cfg.get("output_fwhm", 1.0))
         bundle.headers["L_MAX"] = lmax
         bundle.headers["PIXWIN_APPLIED"] = True
         bundle.headers["DECMIN"] = float(cfg.get("min_dec", -13))
 
+        summary_mode = (
+            f"deconvolved→{bundle.headers['FWHM_OUT']}°"
+            if did_beam_deconv
+            else "pixel-window only (no beam deconvolution)"
+        )
+        beam_file_metric = bundle.headers.get("BL_FILE")
+
         rep = StageReport(
             name=self.name,
-            summary=f"deconvolved→{bundle.headers['FWHM_OUT']}°; ns {nside}→{nside_out}; beam={'yes' if beam_file else 'no'}",
+            summary=f"{summary_mode}; ns {nside}→{nside_out}; beam={'yes' if did_beam_deconv else 'no'}",
             metrics=dict(
                 nside_in=nside, nside_out=nside_out, lmax=lmax,
-                beam=bool(beam_file), beam_file=bundle.headers["BL_FILE"],
+                beam=did_beam_deconv, beam_file=beam_file_metric,
             ),
             figures=[] if not fig_dir else [  # add some optional plots you already had
                 os.path.join(fig_dir, "deconvolved_I.png"),
