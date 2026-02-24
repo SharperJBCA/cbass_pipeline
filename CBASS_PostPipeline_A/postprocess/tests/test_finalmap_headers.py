@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 from astropy.io import fits
+from astropy.io.fits.verify import VerifyError
 
 from postprocess.stages.finalmap import FinalMap
 from postprocess.types import MapBundle
@@ -188,3 +189,16 @@ def test_finalmap_skips_optional_template_cards_when_stage_not_run(tmp_path: Pat
         assert "DCONV" not in hdr
         assert "BL_FILE" not in hdr
         assert "SS_SSUB" not in hdr
+
+
+def test_safe_card_comment_handles_verify_errors():
+    stage = FinalMap()
+    card = fits.Card("TESTKEY", 1)
+
+    def _raise_verify_error():
+        raise VerifyError("CONTINUE cards must have string values.")
+
+    card._parse_comment = _raise_verify_error
+    card._comment = None
+
+    assert stage._safe_card_comment(card) == ""

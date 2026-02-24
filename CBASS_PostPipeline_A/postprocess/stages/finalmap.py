@@ -3,6 +3,7 @@ from typing import Dict, Any, Tuple
 import os
 import numpy as np
 from astropy.io import fits
+from astropy.io.fits.verify import VerifyError
 
 from . import Stage
 from ..types import MapBundle, StageReport
@@ -18,6 +19,13 @@ OPTIONAL_TEMPLATE_KEYS = {
 
 class FinalMap(Stage):
     name = "FinalMap"
+
+    def _safe_card_comment(self, card: fits.Card) -> str:
+        """Return a card comment without failing on malformed CONTINUE cards."""
+        try:
+            return card.comment or ""
+        except VerifyError:
+            return ""
 
     def _read_preserved_cards(self, src_path: str, preserve_all: bool, preserve_in_ext1: bool = True) -> Dict[str, Any]:
         out = {}
@@ -107,7 +115,8 @@ class FinalMap(Stage):
             if key in base_hdr:
                 value = base_hdr[key]
                 # Prefer template comment if available, else use base_hdr comment
-                comment = card.comment if (card.comment not in (None, "")) else base_hdr.comments[key]
+                tmpl_comment = self._safe_card_comment(card)
+                comment = tmpl_comment if tmpl_comment else base_hdr.comments[key]
                 new_hdr.append((key,value, comment),bottom=True)
             else:
                 # Not set in base_hdr – keep template card as-is
