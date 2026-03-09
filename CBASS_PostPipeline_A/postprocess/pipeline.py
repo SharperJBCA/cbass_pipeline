@@ -19,6 +19,9 @@ def run_pipeline(cfg: Dict) -> Tuple[MapBundle, List[StageReport]]:
     )
 
     reports: List[StageReport] = []
+    history_labels = {
+        "Deconvolution": "DECONV_AND_PIXWIN",
+    }
     t0 = time.time()
     print('MODULES',modules)
     for name in modules:
@@ -29,7 +32,8 @@ def run_pipeline(cfg: Dict) -> Tuple[MapBundle, List[StageReport]]:
         bundle, report = stage.run(bundle, stage_cfg, cfg)
         report.metrics["time_sec"] = round(time.time() - t1, 3)
         reports.append(report)
-        bundle.history.append(f"{name} completed")
+        history_label = history_labels.get(name, f"{name} completed")
+        bundle.history.append(history_label)
 
     # Save a tiny manifest next to the final output path if present
     out_path = (cfg.get("FinalMap") or {}).get("output")
