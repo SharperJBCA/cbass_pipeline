@@ -9,7 +9,7 @@ from pathlib import Path
 from astropy.io import fits
 
 
-DEFAULT_TEMPLATE = Path(__file__).resolve().parents[2] / "pipeline" / "FinalMapHeader.hdr"
+DEFAULT_TEMPLATE = Path(__file__).resolve().parents[2] / "postprocess" / "FinalMapHeader.hdr"
 
 
 def update_template(template_path: Path, ads_value: str) -> None:

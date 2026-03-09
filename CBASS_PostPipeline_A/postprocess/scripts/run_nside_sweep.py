@@ -26,10 +26,10 @@ from postprocess.run import resolve
 
 
 COMBINATIONS = {
-    "no_deconv_no_src": ["Masks", "MonoDipoleSub", "Deconvolution", "FinalMap"],
-    "deconv_only": ["Masks", "MonoDipoleSub", "Deconvolution", "FinalMap"],
-    "src_only": ["Masks", "MonoDipoleSub", "SourceSubtraction", "Deconvolution", "FinalMap"],
-    "src_and_deconv": ["Masks", "MonoDipoleSub", "SourceSubtraction", "Deconvolution", "FinalMap"],
+    "no_deconv_no_src": ["Masks", "MonoDipoleSub",  "Deconvolution", "FinalMap"], 
+    #"deconv_only": ["Masks", "MonoDipoleSub", "Deconvolution", "FinalMap"],
+    #"src_only": ["Masks", "MonoDipoleSub", "SourceSubtraction", "Deconvolution", "FinalMap"],
+    #"src_and_deconv": ["Masks", "MonoDipoleSub", "SourceSubtraction", "Deconvolution", "FinalMap"],
 }
 
 

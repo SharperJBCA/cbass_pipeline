@@ -61,8 +61,8 @@ def main() -> int:
     parser.add_argument(
         "--native-fwhm-deg",
         type=float,
-        default=0.75,
-        help="Native beam FWHM in degrees to restore when DCONV=False (default: 0.75).",
+        default=46./60.,
+        help="Native beam FWHM in degrees to restore when DCONV=False (default: 0.766666).",
     )
     args = parser.parse_args()
 

@@ -10,8 +10,53 @@ from ..deconv.core import (
     apply_transfer_to_cov, dec_mask
 )
 
+
+
 class Deconvolution(Stage):
-    name = "Deconvolution"
+    name = "DeconvAndPixwin"
+
+    def update_bundle(self, bundle, dI, dQ, dU, dII, dQQ, dUU, dQU, apply_transfer_function, beam_file, nside, nside_out, lmax,fig_dir, cfg):
+        # Update bundle
+        bundle.map = np.asarray([dI,dQ,dU])
+        bundle.nside = nside_out
+        bundle.cov = np.asarray([dII,dQQ,dUU,dQU])
+
+
+        # Header-ish flags for FinalMap
+        did_beam_deconv = bool(apply_transfer_function and (beam_file is not None))
+        bundle.headers["DCONV"] = did_beam_deconv
+        if did_beam_deconv:
+            bundle.headers["BL_FILE"] = os.path.basename(beam_file)
+            bundle.headers["FWHM_OUT"] = float(cfg.get("output_fwhm", 1.0))
+        else:
+            bundle.headers.pop("BL_FILE", None)
+            bundle.headers.pop("FWHM_OUT", None)
+        bundle.headers["NSIDE_IN"] = nside
+        bundle.headers["NSIDEOUT"] = nside_out
+        bundle.headers["PIXWIN"] = True
+        bundle.headers["DECMIN"] = float(cfg.get("min_dec", -13))
+
+        summary_mode = (
+            f"deconvolved:{bundle.headers['FWHM_OUT']}°"
+            if did_beam_deconv
+            else "pixel-window only (no beam deconvolution)"
+        )
+        beam_file_metric = bundle.headers.get("BL_FILE")
+
+        rep = StageReport(
+            name=self.name,
+            summary=f"{summary_mode}; ns {nside}→{nside_out}; beam={'yes' if did_beam_deconv else 'no'}",
+            metrics=dict(
+                nside_in=nside, nside_out=nside_out, lmax=lmax,
+                beam=did_beam_deconv, beam_file=beam_file_metric,
+            ),
+            figures=[] if not fig_dir else [  # add some optional plots you already had
+                os.path.join(fig_dir, "deconvolved_I.png"),
+                os.path.join(fig_dir, "deconvolved_Q.png"),
+                os.path.join(fig_dir, "deconvolved_U.png"),
+            ],
+        )
+        return bundle, rep 
 
     def run(self, bundle: MapBundle, cfg: Dict[str, Any], full: Dict[str, Any]) -> Tuple[MapBundle, StageReport]:
         fig_dir = cfg.get("fig_dir") or None
@@ -37,9 +82,15 @@ class Deconvolution(Stage):
         lmax = int(cfg.get("beam_function_lmax", 3*nside - 1))
         apodise_inpaint_flag = bool(cfg.get("use_edge_inpainting", False))
         apply_transfer_function = bool(cfg.get("apply_transfer_function", True))
+        beam_file = cfg.get("beam_filename")
+
+        # If no beam and no change in nside, skip
+        if (nside == nside_out) and (apply_transfer_function == False):
+            covII,covQQ,covUU,covQU = cov
+            bundle, rep = self.update_bundle(bundle, I,Q,U, covII,covQQ,covUU,covQU, apply_transfer_function, beam_file, nside, nside_out, lmax,fig_dir, cfg)
+            return bundle, rep
 
         # Build transfer
-        beam_file = cfg.get("beam_filename")
         if (isinstance(beam_file, str) and beam_file.lower() == "none") or not beam_file:
             beam_file = None
         R0, R2, pixwin = build_transfer_functions(
@@ -91,45 +142,6 @@ class Deconvolution(Stage):
         for mapp in (dI,dQ,dU,dII,dQQ,dUU,dQU):
             mapp[m==0] = hp.UNSEEN
 
-        # Update bundle
-        bundle.map = np.asarray([dI,dQ,dU])
-        bundle.nside = nside_out
-        bundle.cov = np.asarray([dII,dQQ,dUU,dQU])
+        bundle, rep = self.update_bundle(dI, dQ, dU, dII, dQQ, dUU, dQU, apply_transfer_function, beam_file, nside, nside_out, lmax,fig_dir, cfg)
 
-
-        # Header-ish flags for FinalMap
-        did_beam_deconv = bool(apply_transfer_function and (beam_file is not None))
-        bundle.headers["DCONV"] = did_beam_deconv
-        if did_beam_deconv:
-            bundle.headers["BL_FILE"] = os.path.basename(beam_file)
-            bundle.headers["FWHM_OUT"] = float(cfg.get("output_fwhm", 1.0))
-        else:
-            bundle.headers.pop("BL_FILE", None)
-            bundle.headers.pop("FWHM_OUT", None)
-        bundle.headers["NSIDE_IN"] = nside
-        bundle.headers["NSIDE_OUT"] = nside_out
-        bundle.headers["L_MAX"] = lmax
-        bundle.headers["PIXWIN_APPLIED"] = True
-        bundle.headers["DECMIN"] = float(cfg.get("min_dec", -13))
-
-        summary_mode = (
-            f"deconvolved→{bundle.headers['FWHM_OUT']}°"
-            if did_beam_deconv
-            else "pixel-window only (no beam deconvolution)"
-        )
-        beam_file_metric = bundle.headers.get("BL_FILE")
-
-        rep = StageReport(
-            name=self.name,
-            summary=f"{summary_mode}; ns {nside}→{nside_out}; beam={'yes' if did_beam_deconv else 'no'}",
-            metrics=dict(
-                nside_in=nside, nside_out=nside_out, lmax=lmax,
-                beam=did_beam_deconv, beam_file=beam_file_metric,
-            ),
-            figures=[] if not fig_dir else [  # add some optional plots you already had
-                os.path.join(fig_dir, "deconvolved_I.png"),
-                os.path.join(fig_dir, "deconvolved_Q.png"),
-                os.path.join(fig_dir, "deconvolved_U.png"),
-            ],
-        )
         return bundle, rep

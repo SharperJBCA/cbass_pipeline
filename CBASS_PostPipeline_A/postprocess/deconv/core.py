@@ -51,25 +51,48 @@ def load_bl_any(
     else:
         raise ValueError(f"Unknown beam_format: {beam_format}")
 
-
     return bl0, bl2
 
-def gen_pixel_window(nside, lmax=None):
-    """Approximate pixel window function"""
+def gen_pixel_window(nside, lmax_target=3071, pol=False, fit_frac=0.25, eps=1e-300):
+    """
+    Extend healpy pixwin beyond the tabulated range (<= 4*nside) using a fitted Gaussian tail:
+        w_l ~ exp(-0.5 * sigma^2 * l(l+1))
+    fit_frac: fraction of the highest available multipoles used to fit the tail width.
+    """
+    
+    lmax_tab = min(lmax_target, 4*nside)  # HEALPix tables are defined up to ~4*nside
+    pw = hp.pixwin(nside, pol=pol, lmax=lmax_tab)
 
-    ell = np.arange(lmax + 1) 
+    def _extend_1d(w):
+        if lmax_tab == lmax_target:
+            return w
 
-    # Okay, so we are approximating the high-ell values of the pixel
-    # window function by transforming a circular top beam into l-space.
-    # This is pretty close. 
-    theta = np.linspace(0,np.pi,10000) 
-    # top hat beam 
-    beam = np.zeros_like(theta) 
-    pixel_area = hp.nside2pixarea(nside, degrees=True)
-    beam[theta<np.radians(3.6/np.pi*0.5*pixel_area**0.5)] = 1
-    bl = hp.beam2bl(beam, theta, lmax=lmax) 
+        ell = np.arange(len(w))
+        i0 = max(2, int((1.0 - fit_frac) * lmax_tab))  # fit on the top fit_frac of the range
+        sel = ell[i0:]
+        x = sel * (sel + 1.0)
+        y = np.log(np.clip(w[i0:], eps, None))
 
-    return  bl/bl[0] 
+        # Fit y ≈ a*x + b  => sigma^2 = -2a
+        A = np.vstack([x, np.ones_like(x)]).T
+        a, b = np.linalg.lstsq(A, y, rcond=None)[0]
+        sigma2 = max(0.0, -2.0 * a)  # guard against pathological fits
+
+        # Build tail and match continuously at ell=lmax_tab
+        ell_tail = np.arange(lmax_tab, lmax_target + 1)
+        tail = np.exp(-0.5 * sigma2 * ell_tail * (ell_tail + 1.0))
+        tail *= (w[-1] / max(tail[0], eps))  # enforce continuity at lmax_tab
+
+        w_full = np.empty(lmax_target + 1, dtype=float)
+        w_full[:len(w)] = w
+        w_full[lmax_tab:] = tail
+        return w_full
+
+    if not pol:
+        return _extend_1d(pw)
+
+    if isinstance(pw, tuple):
+        return tuple(_extend_1d(arr) for arr in pw)
 
 def build_transfer_functions(beam_filename, output_fwhm_deg, nside_in, nside_out, lmax, beam_normalise=False, beam_format="auto", beam_units=None,apply_transfer_function=False):
     # Pixel window ratio (nside_out / nside_in)
@@ -103,8 +126,6 @@ def build_transfer_functions(beam_filename, output_fwhm_deg, nside_in, nside_out
             R0 = g0 / bl0
             R2 = np.zeros_like(R0); R2[2:] = g0[2:] / bl2[2:]
     else:
-        # No-beam path: just reconvolve to target FWHM? (or identity)
-        # If you want identity when no beam: set R to ones
         g0 = hp.gauss_beam(np.radians(output_fwhm_deg), lmax=lmax)
         R0 = g0
         R2 = np.zeros_like(R0); R2[2:] = g0[2:]
@@ -272,13 +293,13 @@ def apply_transfer_to_cov(
         bad = ~np.isfinite(m) | (m == hp.UNSEEN)
         m[bad] = 0.0
 
-    # Build effective kernels for covariance components
-    R0 = np.asarray(R0, dtype=float)[:lmax+1]
-    PW = np.asarray(pixwin, dtype=float)[:lmax+1]
-
-    theta = np.linspace(0,np.pi,10800)
-    beam = hp.bl2beam(R0*pixwin, theta) 
-    K0 = hp.beam2bl(beam**2, theta, lmax) 
+    if (np.sum(R0) >= R0.size) and (np.sum(pixwin) >= R0.size):
+        pixel_area = hp.nside2pixarea(nside_in)
+        K0 = np.ones_like(R0)/pixel_area 
+    else:
+        theta = np.linspace(0,np.pi,10800)
+        beam = hp.bl2beam(R0*pixwin, theta) 
+        K0 = hp.beam2bl(beam**2, theta, lmax) 
 
 
     # Helper to transform a scalar map with kernel K_ell
@@ -299,6 +320,8 @@ def apply_transfer_to_cov(
     valid_out = hp.ud_grade(base_valid.astype(float), nside_out) > 0.5
     for m in (dII, dQQ, dUU, dQU):
         m[~valid_out] = hp.UNSEEN
+        
+    for m in (dII, dQQ, dUU):
         # tiny negative clamp from numerical noise
         neg = (m != hp.UNSEEN) & (m < 0)
         if np.any(neg):
