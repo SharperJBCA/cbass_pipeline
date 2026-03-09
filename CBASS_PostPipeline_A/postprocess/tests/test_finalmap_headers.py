@@ -3,6 +3,7 @@ from pathlib import Path
 import numpy as np
 from astropy.io import fits
 from astropy.io.fits.verify import VerifyError
+from astropy.time import Time
 
 from postprocess.stages.finalmap import FinalMap
 from postprocess.types import MapBundle
@@ -189,6 +190,21 @@ def test_finalmap_skips_optional_template_cards_when_stage_not_run(tmp_path: Pat
         assert "DCONV" not in hdr
         assert "BL_FILE" not in hdr
         assert "SS_SSUB" not in hdr
+
+
+def test_finalmap_sets_fits_date_keyword(tmp_path: Path):
+    out = tmp_path / "output.fits"
+
+    stage = FinalMap()
+    bundle = _build_bundle()
+
+    stage.run(bundle, stage_cfg={}, full_cfg={"FinalMap": {"output": str(out)}})
+
+    with fits.open(out, memmap=False) as hdul:
+        date_value = hdul[1].header["DATE"]
+        assert str(date_value).strip()
+        parsed = Time(date_value, format="fits")
+        assert parsed.utc.isot
 
 
 def test_safe_card_comment_handles_verify_errors():
