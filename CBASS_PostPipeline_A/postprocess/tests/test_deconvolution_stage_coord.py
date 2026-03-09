@@ -58,6 +58,7 @@ def test_deconvolution_declination_mask_uses_bundle_coords(monkeypatch, tmp_path
     stage.run(bundle, cfg, {"vars": {"coords": "G"}})
 
     assert seen["coord"] == "C"
+    assert bundle.headers["DECMIN"] == -14.6
 
 
 def test_deconvolution_sets_header_flags_for_pixwin_only(monkeypatch, tmp_path):
@@ -91,10 +92,14 @@ def test_deconvolution_sets_header_flags_for_pixwin_only(monkeypatch, tmp_path):
         "postprocess.stages.deconvolution.apply_transfer_to_cov",
         lambda *args, **kwargs: tuple(bundle.cov[i].copy() for i in range(4)),
     )
-    monkeypatch.setattr(
-        "postprocess.stages.deconvolution.dec_mask",
-        lambda nside_out, coord, min_dec: np.ones(hp.nside2npix(nside_out), dtype=bool),
-    )
+
+    seen = {"called": False}
+
+    def fake_dec_mask(nside_out, coord, min_dec):
+        seen["called"] = True
+        return np.ones(hp.nside2npix(nside_out), dtype=bool)
+
+    monkeypatch.setattr("postprocess.stages.deconvolution.dec_mask", fake_dec_mask)
 
     stage = Deconvolution()
     cfg = {
@@ -109,6 +114,8 @@ def test_deconvolution_sets_header_flags_for_pixwin_only(monkeypatch, tmp_path):
 
     stage.run(bundle, cfg, {})
 
+    assert seen["called"] is False
     assert bundle.headers["DCONV"] is False
     assert "BL_FILE" not in bundle.headers
     assert "FWHM_OUT" not in bundle.headers
+    assert bundle.headers["DECMIN"] == -15.6
