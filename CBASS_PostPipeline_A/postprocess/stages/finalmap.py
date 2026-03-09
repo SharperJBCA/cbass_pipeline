@@ -4,6 +4,7 @@ import os
 import numpy as np
 from astropy.io import fits
 from astropy.io.fits.verify import VerifyError
+from astropy.time import Time
 
 from . import Stage
 from ..types import MapBundle, StageReport
@@ -249,6 +250,9 @@ class FinalMap(Stage):
         )
         if template_path:
             tbhdu.header = self._apply_template_order(tbhdu.header, template_path)
+
+        # FITS-standard file creation date in UTC for final output metadata.
+        tbhdu.header["DATE"] = Time.now().fits
 
         primary = fits.PrimaryHDU()
         hdul = fits.HDUList([primary, tbhdu])
