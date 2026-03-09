@@ -15,7 +15,7 @@ from ..deconv.core import (
 class Deconvolution(Stage):
     name = "DeconvAndPixwin"
 
-    def update_bundle(self, bundle, dI, dQ, dU, dII, dQQ, dUU, dQU, apply_transfer_function, beam_file, nside, nside_out, lmax,fig_dir, cfg):
+    def update_bundle(self, bundle, dI, dQ, dU, dII, dQQ, dUU, dQU, did_beam_deconv, beam_file, nside, nside_out, lmax,fig_dir, cfg):
         # Update bundle
         bundle.map = np.asarray([dI,dQ,dU])
         bundle.nside = nside_out
@@ -23,7 +23,6 @@ class Deconvolution(Stage):
 
 
         # Header-ish flags for FinalMap
-        did_beam_deconv = bool(apply_transfer_function and (beam_file is not None))
         bundle.headers["DCONV"] = did_beam_deconv
         if did_beam_deconv:
             bundle.headers["BL_FILE"] = os.path.basename(beam_file)
@@ -34,7 +33,7 @@ class Deconvolution(Stage):
         bundle.headers["NSIDE_IN"] = nside
         bundle.headers["NSIDEOUT"] = nside_out
         bundle.headers["PIXWIN"] = True
-        bundle.headers["DECMIN"] = float(cfg.get("min_dec", -13))
+        bundle.headers["DECMIN"] = float(cfg.get("min_dec", -13)) if did_beam_deconv else -15.6
 
         summary_mode = (
             f"deconvolved:{bundle.headers['FWHM_OUT']}°"
@@ -87,12 +86,14 @@ class Deconvolution(Stage):
         # If no beam and no change in nside, skip
         if (nside == nside_out) and (apply_transfer_function == False):
             covII,covQQ,covUU,covQU = cov
-            bundle, rep = self.update_bundle(bundle, I,Q,U, covII,covQQ,covUU,covQU, apply_transfer_function, beam_file, nside, nside_out, lmax,fig_dir, cfg)
+            did_beam_deconv = bool(apply_transfer_function and (beam_file is not None))
+            bundle, rep = self.update_bundle(bundle, I,Q,U, covII,covQQ,covUU,covQU, did_beam_deconv, beam_file, nside, nside_out, lmax,fig_dir, cfg)
             return bundle, rep
 
         # Build transfer
         if (isinstance(beam_file, str) and beam_file.lower() == "none") or not beam_file:
             beam_file = None
+        did_beam_deconv = bool(apply_transfer_function and (beam_file is not None))
         R0, R2, pixwin = build_transfer_functions(
             beam_filename=beam_file,
             output_fwhm_deg=float(cfg.get("output_fwhm", 1.0)),
@@ -137,11 +138,12 @@ class Deconvolution(Stage):
         # Dec mask: always follow the coordinate system of the in-memory map.
         # A stale/incorrect stage config here can otherwise apply a Galactic
         # declination cut to Celestial maps (or vice versa).
-        map_coord = str(bundle.coords or cfg.get("map_coord") or full.get("vars", {}).get("coords") or "G").upper()
-        m = dec_mask(nside_out, coord=map_coord, min_dec=float(cfg.get("min_dec", -13)))
-        for mapp in (dI,dQ,dU,dII,dQQ,dUU,dQU):
-            mapp[m==0] = hp.UNSEEN
+        if did_beam_deconv:
+            map_coord = str(bundle.coords or cfg.get("map_coord") or full.get("vars", {}).get("coords") or "G").upper()
+            m = dec_mask(nside_out, coord=map_coord, min_dec=float(cfg.get("min_dec", -13)))
+            for mapp in (dI,dQ,dU,dII,dQQ,dUU,dQU):
+                mapp[m==0] = hp.UNSEEN
 
-        bundle, rep = self.update_bundle(dI, dQ, dU, dII, dQQ, dUU, dQU, apply_transfer_function, beam_file, nside, nside_out, lmax,fig_dir, cfg)
+        bundle, rep = self.update_bundle(bundle, dI, dQ, dU, dII, dQQ, dUU, dQU, did_beam_deconv, beam_file, nside, nside_out, lmax,fig_dir, cfg)
 
         return bundle, rep
