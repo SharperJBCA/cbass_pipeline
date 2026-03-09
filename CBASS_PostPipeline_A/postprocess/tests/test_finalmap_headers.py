@@ -218,3 +218,43 @@ def test_safe_card_comment_handles_verify_errors():
     card._comment = None
 
     assert stage._safe_card_comment(card) == ""
+
+
+def test_finalmap_normalizes_preserved_freq_and_aeff_strings(tmp_path: Path):
+    src = tmp_path / "input.fits"
+    out = tmp_path / "output.fits"
+    _write_source_with_header(src)
+
+    with fits.open(src, mode="update", memmap=False) as hdul:
+        hdul[1].header["FREQ"] = " 30.5 "
+        hdul[1].header["AEFF"] = " 0.92 "
+
+    stage = FinalMap()
+    bundle = _build_bundle()
+    bundle.source_path = str(src)
+
+    stage.run(bundle, stage_cfg={}, full_cfg={"FinalMap": {"output": str(out)}})
+
+    with fits.open(out, memmap=False) as hdul:
+        hdr = hdul[1].header
+        assert isinstance(hdr["FREQ"], float)
+        assert isinstance(hdr["AEFF"], float)
+        assert hdr["FREQ"] == 30.5
+        assert hdr["AEFF"] == 0.92
+
+
+def test_finalmap_normalizes_pipeline_freq_and_aeff_strings(tmp_path: Path):
+    out = tmp_path / "output.fits"
+
+    stage = FinalMap()
+    bundle = _build_bundle()
+    bundle.headers.update({"FREQ": " 31.25 ", "AEFF": " 0.88 "})
+
+    stage.run(bundle, stage_cfg={}, full_cfg={"FinalMap": {"output": str(out)}})
+
+    with fits.open(out, memmap=False) as hdul:
+        hdr = hdul[1].header
+        assert isinstance(hdr["FREQ"], float)
+        assert isinstance(hdr["AEFF"], float)
+        assert hdr["FREQ"] == 31.25
+        assert hdr["AEFF"] == 0.88

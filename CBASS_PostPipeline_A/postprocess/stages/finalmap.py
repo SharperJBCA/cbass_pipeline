@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Dict, Any, Tuple
+import logging
 import os
 import numpy as np
 from astropy.io import fits
@@ -18,8 +19,21 @@ OPTIONAL_TEMPLATE_KEYS = {
     "SS_SSUB", "SS_MDEC", "SS_CMAX", "SS_CMIN", "SS_GB6", "SS_PMN", "SS_MLV", "SS_CATLG",
 }
 
+LOGGER = logging.getLogger(__name__)
+
 class FinalMap(Stage):
     name = "FinalMap"
+
+    def _normalize_numeric_header_value(self, key: str, value: Any) -> Any:
+        if key not in {"FREQ", "AEFF"} or not isinstance(value, str):
+            return value
+
+        stripped = value.strip()
+        try:
+            return float(stripped)
+        except ValueError:
+            LOGGER.warning("Could not parse header %s=%r as float; preserving original value", key, value)
+            return value
 
     def _safe_card_comment(self, card: fits.Card) -> str:
         """Return a card comment without failing on malformed CONTINUE cards."""
@@ -58,11 +72,11 @@ class FinalMap(Stage):
         # 1) carry preserved cards if not already set
         for k, v in preserved.items():
             if k not in hdr:
-                hdr[k] = v
+                hdr[k] = self._normalize_numeric_header_value(k, v)
         # 2) add/overwrite pipeline cards
         for k, v in pipeline_cards.items():
             try:
-                hdr[k] = v
+                hdr[k] = self._normalize_numeric_header_value(k, v)
             except Exception:
                 hdr[k] = str(v)
         # 3) provenance
