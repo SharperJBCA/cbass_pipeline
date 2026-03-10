@@ -94,6 +94,7 @@ class Deconvolution(Stage):
         if (isinstance(beam_file, str) and beam_file.lower() == "none") or not beam_file:
             beam_file = None
         did_beam_deconv = bool(apply_transfer_function and (beam_file is not None))
+        did_any_transfer = bool(apply_transfer_function or (nside_out != nside))
         R0, R2, pixwin = build_transfer_functions(
             beam_filename=beam_file,
             output_fwhm_deg=float(cfg.get("output_fwhm", 1.0)),
@@ -136,9 +137,7 @@ class Deconvolution(Stage):
         )
 
         # Dec mask: always follow the coordinate system of the in-memory map.
-        # A stale/incorrect stage config here can otherwise apply a Galactic
-        # declination cut to Celestial maps (or vice versa).
-        if did_beam_deconv:
+        if did_any_transfer:
             map_coord = str(bundle.coords or cfg.get("map_coord") or full.get("vars", {}).get("coords") or "G").upper()
             m = dec_mask(nside_out, coord=map_coord, min_dec=float(cfg.get("min_dec", -13)))
             for mapp in (dI,dQ,dU,dII,dQQ,dUU,dQU):

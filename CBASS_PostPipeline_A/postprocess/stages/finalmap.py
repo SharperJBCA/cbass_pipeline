@@ -40,7 +40,12 @@ class FinalMap(Stage):
         try:
             return card.comment or ""
         except VerifyError:
-            return ""
+            #return ""
+            # Fallback for malformed cards: parse the raw card image directly
+            image = getattr(card, "image", "") or "" 
+            if "/" not in image: 
+                return "" 
+            return image.split("/",1)[1].strip() 
 
     def _read_preserved_cards(self, src_path: str, preserve_all: bool, preserve_in_ext1: bool = True) -> Dict[str, Any]:
         out = {}
@@ -134,7 +139,8 @@ class FinalMap(Stage):
                 value = base_hdr[key]
                 # Prefer template comment if available, else use base_hdr comment
                 tmpl_comment = self._safe_card_comment(card)
-                comment = tmpl_comment if tmpl_comment else base_hdr.comments[key]
+                base_comment = base_hdr.comments[key] if key in base_hdr else "" 
+                comment = tmpl_comment if tmpl_comment else base_comment
                 new_hdr.append((key,value, comment),bottom=True)
             else:
                 # Not set in base_hdr – keep template card as-is
