@@ -70,7 +70,6 @@ OBJECT  = 'FULLSKY '           / HEALPix map coverage
 COMMENT
 COMMENT  *** C-BASS post-processing information ***
 COMMENT
-CALDATE = ''
 MD_MONO =                    T / True when monopole subtraction was applied
 MD_DIPO =                    T / True when dipole subtraction was applied
 MD_OFST =                 41.0 / Monopole offset removed [mK]

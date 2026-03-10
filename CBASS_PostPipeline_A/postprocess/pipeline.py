@@ -20,7 +20,7 @@ def run_pipeline(cfg: Dict) -> Tuple[MapBundle, List[StageReport]]:
 
     reports: List[StageReport] = []
     history_labels = {
-        "Deconvolution": "DECONV_AND_PIXWIN",
+        "Deconvolution": "Deconv_Pixwin completed",
     }
     t0 = time.time()
     print('MODULES',modules)

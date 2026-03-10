@@ -61,7 +61,10 @@ class FinalMap(Stage):
             else:
                 for k in PRESERVE_KEYS:
                     if k in hdr:
-                        out[k] = hdr[k]
+                        if k == 'CAL_DATE':
+                            out['DATE_MAP'] = hdr[k] # CAL_MAP -> DATE_MAP in final map
+                        else:
+                            out[k] = hdr[k]
         return out
 
     def _merge_header(self,

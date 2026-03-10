@@ -53,18 +53,18 @@ def load_bl_any(
 
     return bl0, bl2
 
-def gen_pixel_window(nside, lmax_target=3071, pol=False, fit_frac=0.25, eps=1e-300):
+def gen_pixel_window(nside, lmax=3071, pol=False, fit_frac=0.25, eps=1e-300):
     """
     Extend healpy pixwin beyond the tabulated range (<= 4*nside) using a fitted Gaussian tail:
         w_l ~ exp(-0.5 * sigma^2 * l(l+1))
     fit_frac: fraction of the highest available multipoles used to fit the tail width.
     """
     
-    lmax_tab = min(lmax_target, 4*nside)  # HEALPix tables are defined up to ~4*nside
+    lmax_tab = min(lmax, 4*nside)  # HEALPix tables are defined up to ~4*nside
     pw = hp.pixwin(nside, pol=pol, lmax=lmax_tab)
 
     def _extend_1d(w):
-        if lmax_tab == lmax_target:
+        if lmax_tab == lmax:
             return w
 
         ell = np.arange(len(w))
@@ -79,11 +79,11 @@ def gen_pixel_window(nside, lmax_target=3071, pol=False, fit_frac=0.25, eps=1e-3
         sigma2 = max(0.0, -2.0 * a)  # guard against pathological fits
 
         # Build tail and match continuously at ell=lmax_tab
-        ell_tail = np.arange(lmax_tab, lmax_target + 1)
+        ell_tail = np.arange(lmax_tab, lmax + 1)
         tail = np.exp(-0.5 * sigma2 * ell_tail * (ell_tail + 1.0))
         tail *= (w[-1] / max(tail[0], eps))  # enforce continuity at lmax_tab
 
-        w_full = np.empty(lmax_target + 1, dtype=float)
+        w_full = np.empty(lmax + 1, dtype=float)
         w_full[:len(w)] = w
         w_full[lmax_tab:] = tail
         return w_full
