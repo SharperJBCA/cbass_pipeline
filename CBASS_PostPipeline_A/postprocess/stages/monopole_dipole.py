@@ -89,7 +89,7 @@ class MonopoleDipole(Stage):
         hdr["MD_DIPO"] = bool(remove_cmb)
         hdr["MD_OFST"] = float(offset_mK)
         hdr["MD_EOFS"] = float(offset_err)
-        hdr["MD_MINV"] = float(res.metrics.get("min_above0dec_mK", np.nan))
+        hdr["MD_MINV"] = np.round(float(res.metrics.get("min_above0dec_mK", np.nan)),4)
         hdr["MD_DPAP"] = float(res.metrics.get("dipole_amp_mK", dipole_mK))
         hdr["MD_DGLN"] = 264.021
         hdr["MD_DGLT"] = 48.253
