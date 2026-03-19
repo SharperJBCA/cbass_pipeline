@@ -66,11 +66,13 @@ def _load_beam(
     return bl, omega
 
 def _safe_bl(bl: np.ndarray, spin2_zero: bool = False) -> np.ndarray:
-    """Clamp tiny/negative values to avoid numerical blow-ups; zero ℓ<2 for spin-2 if requested."""
+    """Clamp negative values to zero; zero ℓ<2 for spin-2 if requested."""
     out = np.asarray(bl, dtype=float).copy()
-    # Guard against negative/zero tails (can occur with noisy beam tables)
-    floor = max(out[0] * 7e-3, 1e-12)  # consistent with your earlier cut
-    out = np.maximum(out, floor)
+    # Only clamp negative values (can occur with noisy beam tables).
+    # A non-zero floor would leak high-ℓ power through as a pixel-scale
+    # spike, since the beam window is only used for convolution (almxfl),
+    # never as a divisor.
+    out = np.maximum(out, 0.0)
     if spin2_zero and out.size >= 2:
         out[:2] = 0.0
     return out

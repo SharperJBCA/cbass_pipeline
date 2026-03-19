@@ -37,6 +37,7 @@ class Catalogue:
     eflux  : np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=float))
     flag   : np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=bool))
     source : np.ndarray = field(default_factory=lambda: np.empty(0, dtype='S20'))
+    flux_correction: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=float))
     min_flux: float = 0.0  # cut in subclass on load
 
     # ---- core protocol
@@ -68,6 +69,9 @@ class Catalogue:
         s1 = self.source.astype('S20', copy=False)
         s2 = other.source.astype('S20', copy=False)
         new.source = np.concatenate([s1, s2])
+        new.flux_correction = np.concatenate([
+            self._ensure_flux_correction(), other._ensure_flux_correction()
+        ])
         return new
 
     def __repr__(self) -> str:
@@ -89,6 +93,12 @@ class Catalogue:
     def remove_sources(self, mask) -> None:
         self._apply_mask_inplace(mask)
 
+    def _ensure_flux_correction(self) -> np.ndarray:
+        """Return flux_correction array, creating a zero-filled one if needed."""
+        if self.flux_correction.size != self.size:
+            self.flux_correction = np.zeros(self.size, dtype=float)
+        return self.flux_correction
+
     def _apply_mask_inplace(self, keep: np.ndarray) -> None:
         self.glon  = np.ascontiguousarray(self.glon [keep])
         self.glat  = np.ascontiguousarray(self.glat [keep])
@@ -96,6 +106,8 @@ class Catalogue:
         self.eflux = np.ascontiguousarray(self.eflux[keep])
         self.flag  = np.ascontiguousarray(self.flag [keep])
         self.source= np.ascontiguousarray(self.source[keep])
+        if self.flux_correction.size > 0:
+            self.flux_correction = np.ascontiguousarray(self.flux_correction[keep])
 
     def update_sources(self,mask,flux,eflux):
         """Update fluxes of sources"""
@@ -149,16 +161,18 @@ class Catalogue:
     # ---- persistence
     def write_file(self, filename: str) -> None:
         _ensure_dir(filename)
+        flux_corr = self._ensure_flux_correction()
         # HDF5 (compressed)
         with h5py.File(filename, "w") as h:
             grp = h.create_group(self.name)
-            grp.attrs["schema"] = "Catalogue/v1"
+            grp.attrs["schema"] = "Catalogue/v2"
             grp.create_dataset("GLON", data=self.glon,  compression="gzip", shuffle=True)
             grp.create_dataset("GLAT", data=self.glat,  compression="gzip", shuffle=True)
             grp.create_dataset("FLUX", data=self.flux,  compression="gzip", shuffle=True)
             grp.create_dataset("eFLUX",data=self.eflux, compression="gzip", shuffle=True)
             grp.create_dataset("FLAG", data=self.flag,  compression="gzip", shuffle=True)
             grp.create_dataset("SOURCE", data=self.source.astype('S20'))
+            grp.create_dataset("FLUX_CORRECTION", data=flux_corr, compression="gzip", shuffle=True)
 
         # FITS mirror
         cols = [
@@ -167,7 +181,8 @@ class Catalogue:
             fits.Column(name='FLUX',  format='D',   array=self.flux),
             fits.Column(name='eFLUX', format='D',   array=self.eflux),
             fits.Column(name='FLAG',  format='L',   array=self.flag),
-            fits.Column(name='SOURCE',format='20A', array=self.source)
+            fits.Column(name='SOURCE',format='20A', array=self.source),
+            fits.Column(name='FLUX_CORRECTION', format='D', array=flux_corr),
         ]
         fits.BinTableHDU.from_columns(cols).writeto(filename.replace(".hdf5",".fits"), overwrite=True)
 
@@ -185,6 +200,10 @@ class Catalogue:
                 self.source = np.array([x.decode('ascii') for x in s], dtype='S20')
             except Exception:
                 self.source = s.astype('S20')
+            if 'FLUX_CORRECTION' in grp:
+                self.flux_correction = grp['FLUX_CORRECTION'][...]
+            else:
+                self.flux_correction = np.zeros(self.size, dtype=float)
         self.name = name
 
     # ---- convenience
@@ -340,23 +359,15 @@ def common_sources(cat1: Catalogue, cat2: Catalogue, radius_arcmin: float=1.0) -
         cat2.update_sources(~keep2, f2new[~keep2], ef2new[~keep2])
         return cat1, cat2
 
-# --- legacy loader/saver convenience (kept for compatibility) ----------------
+# --- merge catalogues --------------------------------------------------------
 
-def save_catalogues(filename: str, catalogues: Dict[str, Dict[str, np.ndarray]]) -> None:
-    _ensure_dir(filename)
-    with h5py.File(filename, "a") as h:
-        for catname, cat in catalogues.items():
-            grp = h.require_group(catname)
-            for dname, data in cat.items():
-                if dname in grp: del grp[dname]
-                try:
-                    grp.create_dataset(dname, data=data, compression="gzip", shuffle=True)
-                except TypeError:
-                    continue
-
-def load_catalogues(filename: str) -> Dict[str, Dict[str, np.ndarray]]:
-    with h5py.File(filename, "r") as h:
-        out = {}
-        for catname, grp in h.items():
-            out[catname] = {d: grp[d][...] for d in grp.keys()}
-    return out
+def merge_catalogues(cbass_cat: Catalogue, other_cat: Catalogue, fwhm_deg: float = 1.0) -> None:
+    """Weight down *other_cat* fluxes near C-BASS detections (in-place)."""
+    sigma = np.radians(fwhm_deg) / 2.355
+    for i in range(cbass_cat.flux.size):
+        dist = haversine(
+            cbass_cat.glat[i], cbass_cat.glon[i],
+            other_cat.glat, other_cat.glon,
+        )
+        w = np.exp(-0.5 * (dist ** 2) / sigma ** 2)
+        other_cat.flux = other_cat.flux * (1 - w)

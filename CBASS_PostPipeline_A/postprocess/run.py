@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # postprocess/cli.py
 from __future__ import annotations
-import argparse, itertools, json, os, sys, textwrap, subprocess, copy, datetime
-from typing import Any, Dict, Iterable, List, Tuple
+import argparse, json, os, sys, copy
+from typing import Any, List
 from .pipeline import run_pipeline
 import re
 
@@ -19,11 +19,6 @@ _PLACEHOLDER = re.compile(r"""
 """, re.VERBOSE)
 
 import tomllib as toml 
-
-# --- Minimal logging
-def log(msg: str) -> None:
-    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    print(f"[{ts}] {msg}", flush=True)
 
 # --- Small helpers
 def deep_get(d: dict, path: str, default=None):
@@ -211,13 +206,6 @@ def parse_overrides(pairs: List[str]) -> dict:
         deep_set(out, k, coerce_scalar(v))
     return out
 
-def cartesian_product(keys_vals: List[Tuple[str, List[Any]]]) -> List[dict]:
-    runs = []
-    keys = [kv[0] for kv in keys_vals]
-    for values in itertools.product(*[kv[1] for kv in keys_vals]):
-        runs.append({k: v for k, v in zip(keys, values)})
-    return runs
-
 def apply_profile(cfg: dict, name: str | None) -> dict:
     if not name:
         return cfg
@@ -234,89 +222,18 @@ def apply_profile(cfg: dict, name: str | None) -> dict:
             base = deep_merge(base, overrides)
     return base
 
-def apply_matrix(cfg: dict) -> List[dict]:
-    matrix = cfg.get("matrix", {})
-    if not matrix:
-        return [cfg]
-    # Build cartesian product of matrix keys
-    kvs = [(k, v) for k, v in matrix.items()]
-    combos = cartesian_product(kvs)
-    constraints = cfg.get("constraints", {})
-    selected = []
-    for combo in combos:
-        candidate = copy.deepcopy(cfg)
-        # Fill each matrix item (key paths like "vars.nside")
-        for k, v in combo.items():
-            deep_set(candidate, k, v)
-        # Evaluate constraints in a very limited, explicit context
-        ok = True
-        ctx = _flatten(candidate)
-        safe_names = {k.replace(".", "_"): v for k, v in ctx.items()}
-        for expr, want in constraints.items():
-            # Replace dotted keys with underscored keys in expr
-            normalized = []
-            token = ""
-            for ch in expr:
-                if ch.isalnum() or ch in "._":
-                    token += ch
-                else:
-                    if token:
-                        normalized.append(token.replace(".", "_"))
-                        token = ""
-                    normalized.append(ch)
-            if token:
-                normalized.append(token.replace(".", "_"))
-            expr_norm = "".join(normalized)
-            try:
-                result = eval(expr_norm, {"__builtins__": {}}, safe_names)  # constraint like vars_nside_out <= vars_nside
-            except Exception:
-                result = False
-            if not result:
-                ok = False
-                break
-        if ok:
-            selected.append(candidate)
-    return selected or []
-
-
 def run_once(cfg: dict) -> int:
     _, _ = run_pipeline(cfg)
     return 0
-
-def plan_commands(cfg: dict, args: argparse.Namespace) -> List[str]:
-    # Produce safe single-line commands to run a job (used by submit_all.sh)
-    python = os.environ.get("PYTHON", sys.executable)
-    base = [python, "-m", "postprocess.cli", "run", "--config", args.config]
-    if args.profile:
-        base += ["--profile", args.profile]
-    cmds = []
-    if args.set:
-        # For planning from matrix, we already applied overrides; re-emit as --set
-        pass  # keep simple; commands below won’t add sets here
-    # Derive a jobname from FinalMap.output if present
-    out = deep_get(cfg, "FinalMap.output") or "out/unnamed.fits"
-    _assert_no_braces(out, "FinalMap.output")
-
-    jobname = os.path.splitext(os.path.basename(out))[0]
-    cmd = base + ["--set", f"FinalMap.output={out}", f"vars.nside={deep_get(cfg,'vars.nside')}",
-                  f"vars.nside_out={deep_get(cfg,'vars.nside_out')}", f"vars.coords={deep_get(cfg,'vars.coords')}"]
-    cmds.append(" ".join(cmd))
-    return cmds
 
 def main():
     ap = argparse.ArgumentParser(
         prog="postprocess.cli",
         description="C-BASS post-processing orchestrator",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=textwrap.dedent("""
-        Examples:
-          # Run once with overrides
-          python -m postprocess.cli run --config defaults.toml --profile with_deconv \\
-            --set vars.nside=512 vars.nside_out=256 vars.coords=C
-
-          # Plan a matrix and hand commands to the submitter
-          python -m postprocess.cli plan --config defaults.toml --profile with_deconv --expand-matrix
-        """),
+        epilog=(
+            "Example: python -m postprocess.cli run --config defaults.toml "
+            "--profile with_deconv --set vars.nside=512 vars.nside_out=256 vars.coords=C"
+        ),
     )
     sub = ap.add_subparsers(dest="cmd", required=True)
 
@@ -327,9 +244,6 @@ def main():
 
     sp_run = sub.add_parser("run", parents=[common], help="Run a single job")
     sp_run.add_argument("--dry-run", action="store_true", help="Load/resolve only, do not execute")
-
-    sp_plan = sub.add_parser("plan", parents=[common], help="Expand matrix and print commands")
-    sp_plan.add_argument("--expand-matrix", action="store_true", help="Expand [matrix] into many jobs")
 
     args = ap.parse_args()
 
@@ -343,19 +257,6 @@ def main():
     # Parse overrides
     overrides = parse_overrides(args.set)
 
-
-    if args.cmd == "plan":
-        cfgs = [cfg]
-        if args.expand_matrix:
-            cfgs = apply_matrix(cfg)
-        # Resolve each cfg (apply overrides then interpolate)
-        cmds = []
-        for c in cfgs:
-            resolved = resolve(c, overrides)
-            cmds.extend(plan_commands(resolved, args))
-        for line in cmds:
-            print(line)
-        return
 
     if args.cmd == "run":
         cfg = resolve(cfg, overrides)

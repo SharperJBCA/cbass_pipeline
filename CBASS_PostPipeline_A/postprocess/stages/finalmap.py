@@ -40,7 +40,6 @@ class FinalMap(Stage):
         try:
             return card.comment or ""
         except VerifyError:
-            #return ""
             # Fallback for malformed cards: parse the raw card image directly
             image = getattr(card, "image", "") or "" 
             if "/" not in image: 
@@ -158,9 +157,6 @@ class FinalMap(Stage):
         for line in history_lines:
             new_hdr["HISTORY"] = line
 
-        # Replace original header contents with the new ordered header
-        #hdr.clear()
-        #hdr.extend(new_hdr.cards)
         return new_hdr
 
 
